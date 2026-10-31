@@ -56,7 +56,7 @@ jobs:
             WADAHEX_win_VST3.zip
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || contains(github.event.head_commit.message, '[release]')
     needs: [ macos, windows ]
     runs-on: ubuntu-latest
     permissions:
@@ -66,6 +66,15 @@ jobs:
         with: { path: dist }
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
+          target_commitish: ${{ github.sha }}
+          name: WADAHEX 1.0.0
+          body: |
+            **WADAHEX** - SDS-V style analog drum synth with an 8-bit chip layer. By Yishay Raziel.
+
+            - **Mac (Apple Silicon + Intel):** download `WADAHEX_mac.dmg`, open it and run *WADAHEX Installer.pkg*. Signed and notarized by Apple.
+            - **Windows (64-bit):** download `WADAHEX_win_setup.exe` and run it. If SmartScreen warns, click *More info > Run anyway*.
+            - VST3-only zips are included for manual installs. The PDF manual is inside the DMG and installed on Windows.
           files: |
             dist/WADAHEX-mac/WADAHEX_mac.dmg
             dist/WADAHEX-mac/WADAHEX_mac_VST3.zip

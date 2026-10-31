@@ -48,11 +48,12 @@ jobs:
           if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\wadahex.iss
           Compress-Archive -Path build\HEX1_artefacts\Release\VST3\WADAHEX.vst3 -DestinationPath WADAHEX_win_VST3.zip
+          Move-Item installer\Output\WADAHEX_win_setup.exe WADAHEX_win_setup.exe
       - uses: actions/upload-artifact@v4
         with:
           name: WADAHEX-windows
           path: |
-            installer/Output/WADAHEX_win_setup.exe
+            WADAHEX_win_setup.exe
             WADAHEX_win_VST3.zip
 
   release:

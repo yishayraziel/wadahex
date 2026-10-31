@@ -2,6 +2,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <atomic>
 #include "Presets.h"
+#include "Reverb80s.h"
 
 // One entry per per-pad parameter: id suffix, display name, range, default comes from the Classic kit.
 struct ParamSpec { const char* id; const char* name; float min, max, centre; const char* unit; };
@@ -24,7 +25,7 @@ public:
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 2.0; }
+    double getTailLengthSeconds() const override { return 4.0; }
 
     int getNumPrograms() override { return (int) factoryKits().size(); }
     int getCurrentProgram() override { return currentKit; }
@@ -46,16 +47,19 @@ public:
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
+    static BusesProperties makeBuses();
     void readPad (int pad, PadParams& p) const;
     void applyKit (const Kit& kit);
     int padForNote (int note) const;
 
-    struct PadPtrs { std::array<std::atomic<float>*, 31> v {}; };
+    struct PadPtrs { std::array<std::atomic<float>*, 34> v {}; };
     std::array<PadPtrs, kNumPads> ptrs;
     std::atomic<float>* masterPtr = nullptr;
 
     std::vector<std::vector<int8_t>> chipBank;
     std::array<DrumVoice, kNumPads> voices;
+    std::array<Reverb80s, kNumPads> reverbs;
+    juce::AudioBuffer<float> scratch;
     std::array<PadParams, kNumPads> padParams;
     std::array<std::atomic<float>, kNumPads> uiHit {};
     std::array<std::atomic<float>, kNumPads> padMeter {};

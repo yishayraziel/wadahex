@@ -108,6 +108,9 @@ def build(path):
                     ["DRIVE", "Soft saturation. Thickens and glues the layers."],
                     ["DYNAMICS", "How much velocity matters. High = soft hits get quieter, darker, with less bend; hard hits get slightly sharper in pitch."],
                     ["VEL DECAY", "Soft hits ring shorter, like a real pad played lightly."],
+                    ["VERB", "Amount of the pad's own 80s reverb: a bright, dense room/plate. 0 = off."],
+                    ["GATE", "OFF = natural reverb tail. Turn it up for the classic gated reverb: a big sustained tail chopped short "
+                             "after each hit (750 ms down to 200 ms). Each pad's gate opens on its own hits."],
                     ["LEVEL", "Pad volume."], ["PAN", "Stereo position."]]),
     ]
     s += [PageBreak(), Paragraph("Controls", H2)]
@@ -115,6 +118,14 @@ def build(path):
         s += [KeepTogether([Paragraph(name, CELLB), Spacer(1, 2), table(rows, [28 * mm, W - 28 * mm], header=False), Spacer(1, 8)])]
     s += [Paragraph("<b>MASTER</b> (top right) sets the overall output with a gentle safety limiter. Click a value to type it in; drag knobs up/down to change them.", BODY)]
 
+    s += [Paragraph("Separate outputs", H2),
+          Paragraph("Every pad can play on the main stereo output or on its own stereo output. Select a pad and click "
+                    "<b>OUT: MAIN</b> (bottom of the pad panel) to switch it to <b>OUT: OWN</b>. Then enable WADAHEX's extra outputs in your DAW: "
+                    "they are named <b>2 KICK, 3 SNARE, 4 TOM 1, 5 TOM 2, 6 TOM 3, 7 TOM 4, 8 CLAP, 9 PERC</b>. The pad's reverb travels with it. "
+                    "If an output isn't enabled in the DAW, the pad stays on the main output so nothing goes silent. Changing kits keeps your routing.", BODY),
+          Paragraph("Logic: load WADAHEX as Multi Output and add the extra channels with + on the mixer. Ableton: create MIDI tracks with "
+                    "Audio From = WADAHEX and pick the output. Cubase: activate the outputs in the instrument's output menu. "
+                    "FL Studio: route the plugin's outputs to mixer tracks in its Processing tab.", SMALL)]
     s += [KeepTogether([Paragraph("Factory kits", H2),
           table([["Kit", "Character"],
                  ["SDS-V", "Every drum matched by computer to a real SDS5 kit recording (kick, snare, four toms, rimshot). Pure synthesis, fully editable."],
@@ -125,7 +136,7 @@ def build(path):
                  ["Pew Pew Toms", "Toms pushed to the extreme: full bend, long sweeps, more resonance."],
                  ["Electro '84", "Long boomy kick, tight toms with a ZAP chip, metallic perc."],
                  ["Chip Crush", "Chips up front at 4 bits, analog layers pulled back, more drive."],
-                 ["Gated Arena", "Long noisy snare and toms - the big-room drum sound, ready for a gate."]],
+                 ["Gated Arena", "Long noisy snare and toms with the gated reverb on: the big-room 80s drum sound."]],
                 [34 * mm, W - 34 * mm]),
           Paragraph("Changing kit overwrites the current pad settings. Your tweaks are saved with the DAW project.", SMALL)])]
 

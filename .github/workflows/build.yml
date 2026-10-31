@@ -23,7 +23,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: installer/mac_package.sh
+        run: VERSION=$(sed -nE 's/^project\(HEX1 VERSION ([0-9.]+)\)/\1/p' CMakeLists.txt) installer/mac_package.sh
       - uses: actions/upload-artifact@v4
         with:
           name: WADAHEX-mac
@@ -46,7 +46,8 @@ jobs:
         shell: pwsh
         run: |
           if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\wadahex.iss
+          $v = (Select-String -Path CMakeLists.txt -Pattern 'project\(HEX1 VERSION ([0-9.]+)\)').Matches[0].Groups[1].Value
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" installer\wadahex.iss
           Compress-Archive -Path build\HEX1_artefacts\Release\VST3\WADAHEX.vst3 -DestinationPath WADAHEX_win_VST3.zip
           Move-Item installer\Output\WADAHEX_win_setup.exe WADAHEX_win_setup.exe
       - uses: actions/upload-artifact@v4
@@ -63,15 +64,21 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: echo "version=$(sed -nE 's/^project\(HEX1 VERSION ([0-9.]+)\)/\1/p' CMakeLists.txt)" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
         with: { path: dist }
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', steps.v.outputs.version) }}
           target_commitish: ${{ github.sha }}
-          name: WADAHEX 1.0.0
+          name: WADAHEX ${{ steps.v.outputs.version }}
+          make_latest: true
           body: |
             **WADAHEX** - SDS-V style analog drum synth with an 8-bit chip layer. By Yishay Raziel.
+
+            **New in 1.1:** an 80s reverb on every pad (VERB + GATE: turn GATE up for the classic gated reverb) and separate outputs: set a pad to *OUT: OWN* and enable WADAHEX's extra outputs in your DAW (2 KICK ... 9 PERC).
 
             - **Mac (Apple Silicon + Intel):** download `WADAHEX_mac.dmg`, open it and run *WADAHEX Installer.pkg*. Signed and notarized by Apple.
             - **Windows (64-bit):** download `WADAHEX_win_setup.exe` and run it. If SmartScreen warns, click *More info > Run anyway*.

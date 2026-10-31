@@ -82,7 +82,8 @@ private:
     juce::Image plate, logo;
     juce::ComboBox kitBox, chipBox;
     juce::TextButton prevKit, nextKit;
-    juce::TextButton toneFiltBtn { "DRY" }, curveBtn { "FAST" };
+    juce::TextButton toneFiltBtn { "DRY" }, curveBtn { "FAST" }, outBtn { "OUT: MAIN" };
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> outAtt;
     juce::Label chipLabel, toneFiltLabel, curveLabel;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> chipAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> toneFiltAtt, curveAtt;

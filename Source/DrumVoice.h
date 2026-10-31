@@ -40,6 +40,9 @@ struct PadParams
     bool  analogBend = false; // true: SDS-V curve - PITCH is the strike pitch and it decays in Hz toward pitch / 2^(4*bend)
     float toneLP = 20000;  // Hz: the SDS-V "filtered triangle" output (20 kHz = open)
     float noiseHP = 20;    // Hz: high-pass on the noise after the noise-tone low-pass (20 Hz = off)
+    float verb = 0;        // 80s reverb amount (0 = off)
+    float gate = 0;        // 0 = natural tail, >0 = gated reverb (higher = shorter)
+    bool  ownOut = false;  // route this pad to its own stereo output
 };
 
 // Topology-preserving state-variable filter (Simper/Cytomic).

@@ -300,7 +300,7 @@ const std::vector<Sec>& sections()
         { 757, 1121, 508, 566, 626, 34.0f, { { -1, "SOUND" }, { 1, "LEVEL" }, { 2, "PITCH" }, { 3, "BITS" } } },
         { 1149, 1641, 508, 566, 626, 32.0f, { { 12, "CUTOFF" }, { 13, "RESO" }, { 14, "ENV" }, { 15, "DECAY" }, { 29, "TONE LP" }, { -2, "TONE IN" } } },
         { 757, 1031, 745, 803, 864, 34.0f, { { 23, "RATE" }, { 24, "PITCH" }, { 25, "CUTOFF" } } },
-        { 1060, 1641, 745, 803, 864, 34.0f, { { 20, "CLICK" }, { 16, "DRIVE" }, { 17, "DYNAMICS" }, { 27, "VEL DECAY" }, { 18, "LEVEL" }, { 19, "PAN" } } },
+        { 1060, 1641, 745, 803, 864, 29.0f, { { 20, "CLICK" }, { 16, "DRIVE" }, { 17, "DYNAMICS" }, { 27, "VEL DECAY" }, { 31, "VERB" }, { 32, "GATE" }, { 18, "LEVEL" }, { 19, "PAN" } } },
     };
     return s;
 }
@@ -356,6 +356,11 @@ Hex1Editor::Hex1Editor (Hex1Processor& p) : AudioProcessorEditor (p), proc (p), 
     toneFiltBtn.onStateChange = [this] { toneFiltBtn.setButtonText (toneFiltBtn.getToggleState() ? "FILTERED" : "DRY"); };
     toneFiltBtn.setTooltip ("DRY = SDS-V routing: filter acts on noise + click only. FILTERED = whole voice through the filter.");
     content.addAndMakeVisible (curveBtn); content.addAndMakeVisible (toneFiltBtn);
+    outBtn.setClickingTogglesState (true);
+    outBtn.onStateChange = [this] { outBtn.setButtonText (outBtn.getToggleState() ? "OUT: OWN" : "OUT: MAIN"); };
+    outBtn.setTooltip ("MAIN = the pad plays on the main stereo output. OWN = the pad goes to its own stereo output "
+                       "(enable WADAHEX's extra outputs in your DAW: 2 KICK, 3 SNARE ... 9 PERC).");
+    content.addAndMakeVisible (outBtn);
 
     for (int i = 0; i < chips::kNumChips; ++i) chipBox.addItem (chips::names[i], i + 1);
     content.addAndMakeVisible (chipBox);
@@ -407,6 +412,9 @@ void Hex1Editor::selectPad (int pad)
     curveAtt.reset();
     curveAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, Hex1Processor::pid (pad, "analogBend"), curveBtn);
     curveBtn.setButtonText (curveBtn.getToggleState() ? "ANLG" : "FAST");
+    outAtt.reset();
+    outAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, Hex1Processor::pid (pad, "out"), outBtn);
+    outBtn.setButtonText (outBtn.getToggleState() ? "OUT: OWN" : "OUT: MAIN");
     content.repaint (500, 840, 220, 50);
 }
 
@@ -424,6 +432,7 @@ void Hex1Editor::layoutContent()
     prevKit.setBounds (820, 53, 48, 48);
     nextKit.setBounds (1237, 53, 48, 48);
     master.slider.setBounds (1461, 42, 100, 100);
+    outBtn.setBounds (548, 842, 150, 38);
 
     size_t kIdx = 0;
     for (auto& sec : sections())
@@ -471,7 +480,7 @@ void Hex1Editor::Content::paint (juce::Graphics& g)
     const int pad = ed.selectedPad;
     g.setColour (cream.withAlpha (0.75f)); g.setFont (font (17.0f, false));
     g.drawText ("MIDI " + juce::MidiMessage::getMidiNoteName (padInfo[pad].note, true, true, 3) + " (" + juce::String (padInfo[pad].note)
-                + ")   alt " + juce::String (padInfo[pad].altNote), 440, 852, 240, 22, juce::Justification::centredRight);
+                + ")   alt " + juce::String (padInfo[pad].altNote), 290, 850, 246, 22, juce::Justification::centredRight);
 
     // output LED meter: 2 columns x 12 segments, green-free retro red/amber
     const int segs = 12;

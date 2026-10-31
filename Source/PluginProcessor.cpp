@@ -36,6 +36,9 @@ const std::vector<ParamSpec>& Hex1Processor::specs()
         { "analogBend", "Bend Curve",   0, 1, 0.5f, "" },
         { "toneLP",     "Tone LP",      150, 20000, 2500, "Hz" },
         { "noiseHP",    "Noise HP",     20, 3000, 250, "Hz" },
+        { "verb",       "Reverb",       0, 1, 0.5f, "" },
+        { "gate",       "Reverb Gate",  0, 1, 0.5f, "gate" },
+        { "out",        "Output",       0, 1, 0.5f, "" },
     };
     return s;
 }
@@ -56,7 +59,10 @@ static float fieldOf (const PadParams& p, size_t i)
         case 27: return p.velDecay;
         case 28: return p.analogBend ? 1.0f : 0.0f;
         case 29: return p.toneLP;
-        default: return p.noiseHP;
+        case 30: return p.noiseHP;
+        case 31: return p.verb;
+        case 32: return p.gate;
+        default: return p.ownOut ? 1.0f : 0.0f;
     }
 }
 
@@ -77,6 +83,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout Hex1Processor::createLayout(
             const juce::String id = pid (pad, s.id);
             const juce::String name = juce::String (padInfo[pad].name) + " " + s.name;
             const float def = fieldOf (kit[(size_t) pad], i);
+            if (i == 33)
+            {
+                group->addChild (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { id, 1 }, name,
+                                                                               juce::StringArray { "Main", "Own" }, def > 0.5f ? 1 : 0));
+                continue;
+            }
             if (i == 28)
             {
                 group->addChild (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { id, 1 }, name,
@@ -101,6 +113,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout Hex1Processor::createLayout(
             if (i == 3) r.interval = 1.0f;
             const juce::String unit = s.unit;
             auto toText = [unit] (float v, int) {
+                if (unit == "gate") return v <= 0.005f ? juce::String ("OFF")
+                                                       : juce::String ((int) std::round ((0.75f - 0.55f * std::sqrt (v)) * 1000.0f)) + " ms";
                 if (unit == "LHz") return juce::String (v, v < 10 ? 2 : 1) + " Hz";
                 if (unit == "Hz") return v >= 1000 ? juce::String (v / 1000.0f, 2) + " kHz" : juce::String ((int) std::round (v)) + " Hz";
                 if (unit == "ms") return v >= 1000 ? juce::String (v / 1000.0f, 2) + " s" : juce::String ((int) std::round (v)) + " ms";
@@ -122,7 +136,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout Hex1Processor::createLayout(
 }
 
 Hex1Processor::Hex1Processor()
-    : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
+    : AudioProcessor (makeBuses()),
       apvts (*this, nullptr, "HEX1", createLayout())
 {
     for (int pad = 0; pad < kNumPads; ++pad)
@@ -134,15 +148,33 @@ Hex1Processor::Hex1Processor()
     for (auto& h : uiHit) h.store (-1.0f);
 }
 
+juce::AudioProcessor::BusesProperties Hex1Processor::makeBuses()
+{
+    // main stereo out + one optional stereo out per pad (off until the host enables it)
+    auto b = BusesProperties().withOutput ("Main", juce::AudioChannelSet::stereo(), true);
+    for (int i = 0; i < kNumPads; ++i)
+        b = b.withOutput (juce::String (i + 2) + " " + juce::String (padInfo[i].name), juce::AudioChannelSet::stereo(), false);
+    return b;
+}
+
 bool Hex1Processor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     const auto& out = layouts.getMainOutputChannelSet();
-    return out == juce::AudioChannelSet::stereo() || out == juce::AudioChannelSet::mono();
+    if (! (out == juce::AudioChannelSet::stereo() || out == juce::AudioChannelSet::mono())) return false;
+    if (! layouts.inputBuses.isEmpty()) for (auto& in : layouts.inputBuses) if (! in.isDisabled()) return false;
+    for (int i = 1; i < layouts.outputBuses.size(); ++i)
+    {
+        const auto& set = layouts.outputBuses.getReference (i);
+        if (! (set.isDisabled() || set == juce::AudioChannelSet::stereo())) return false;
+    }
+    return true;
 }
 
-void Hex1Processor::prepareToPlay (double sampleRate, int)
+void Hex1Processor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     for (auto& v : voices) v.prepare (sampleRate, &chipBank);
+    for (auto& r : reverbs) r.prepare (sampleRate);
+    scratch.setSize (2 * kNumPads, juce::jmax (512, samplesPerBlock), false, true, false);
 }
 
 void Hex1Processor::readPad (int pad, PadParams& p) const
@@ -158,6 +190,7 @@ void Hex1Processor::readPad (int pad, PadParams& p) const
     p.toneFilt = v[22]->load() > 0.5f; p.lfoRate = v[23]->load(); p.lfoPitch = v[24]->load(); p.lfoCut = v[25]->load();
     p.noiseSweep = v[26]->load(); p.velDecay = v[27]->load(); p.analogBend = v[28]->load() > 0.5f;
     p.toneLP = v[29]->load(); p.noiseHP = v[30]->load();
+    p.verb = v[31]->load(); p.gate = v[32]->load(); p.ownOut = v[33]->load() > 0.5f;
 }
 
 int Hex1Processor::padForNote (int note) const
@@ -174,50 +207,99 @@ void Hex1Processor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
     juce::ScopedNoDenormals noDenormals;
     buffer.clear();
     const int numSamples = buffer.getNumSamples();
+    if (numSamples == 0) return;
     for (int pad = 0; pad < kNumPads; ++pad) readPad (pad, padParams[(size_t) pad]);
+
+    // per-pad stereo scratch (pad p uses channels 2p, 2p+1)
+    if (scratch.getNumSamples() < numSamples) scratch.setSize (2 * kNumPads, numSamples, false, false, true);
+    scratch.clear (0, numSamples);
+
+    // where each pad was hit inside this block (keys the reverb gate)
+    std::array<std::array<int, 16>, kNumPads> hits {};
+    std::array<int, kNumPads> numHits {};
+    auto hitPad = [&] (int pad, float vel, int at)
+    {
+        voices[(size_t) pad].trigger (vel, padParams[(size_t) pad]);
+        if (numHits[(size_t) pad] < 16) hits[(size_t) pad][(size_t) numHits[(size_t) pad]++] = at;
+    };
 
     for (int pad = 0; pad < kNumPads; ++pad)
     {
         const float v = uiHit[(size_t) pad].exchange (-1.0f);
-        if (v >= 0.0f) voices[(size_t) pad].trigger (v, padParams[(size_t) pad]);
+        if (v >= 0.0f) hitPad (pad, v, 0);
     }
-
-    float* L = buffer.getWritePointer (0);
-    float* R = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : nullptr;
-    juce::HeapBlock<float> monoR; if (R == nullptr) { monoR.allocate ((size_t) numSamples, true); R = monoR.get(); }
 
     int pos = 0;
     auto renderTo = [&] (int end)
     {
         if (end <= pos) return;
         for (int pad = 0; pad < kNumPads; ++pad)
-            voices[(size_t) pad].render (L + pos, R + pos, end - pos, padParams[(size_t) pad], rng);
+            voices[(size_t) pad].render (scratch.getWritePointer (2 * pad) + pos, scratch.getWritePointer (2 * pad + 1) + pos,
+                                         end - pos, padParams[(size_t) pad], rng);
         pos = end;
     };
-
     for (const auto meta : midi)
     {
         const auto msg = meta.getMessage();
         if (! msg.isNoteOn()) continue;
-        renderTo (juce::jlimit (0, numSamples, meta.samplePosition));
+        const int at = juce::jlimit (0, numSamples, meta.samplePosition);
+        renderTo (at);
         const int pad = padForNote (msg.getNoteNumber());
-        if (pad >= 0) voices[(size_t) pad].trigger (msg.getFloatVelocity(), padParams[(size_t) pad]);
+        if (pad >= 0) hitPad (pad, msg.getFloatVelocity(), at);
     }
     renderTo (numSamples);
 
-    // master gain (smoothed) + soft safety clip
-    const float target = juce::Decibels::decibelsToGain (masterPtr->load());
-    for (int i = 0; i < numSamples; ++i)
+    // reverb per pad, then route the pad to the main bus or its own bus
+    auto mainBus = getBusBuffer (buffer, false, 0);
+    float* mL = mainBus.getWritePointer (0);
+    float* mR = mainBus.getNumChannels() > 1 ? mainBus.getWritePointer (1) : nullptr;
+    for (int pad = 0; pad < kNumPads; ++pad)
     {
-        masterSmoothed += 0.001f * (target - masterSmoothed);
-        L[i] = std::tanh (L[i] * masterSmoothed);
-        R[i] = std::tanh (R[i] * masterSmoothed);
+        const auto& pp = padParams[(size_t) pad];
+        float* pL = scratch.getWritePointer (2 * pad);
+        float* pR = scratch.getWritePointer (2 * pad + 1);
+        auto& rv = reverbs[(size_t) pad];
+        if (pp.verb > 0.001f || ! rv.isSilent())
+        {
+            int start = 0;
+            for (int k = 0; k <= numHits[(size_t) pad]; ++k)
+            {
+                const int end = k < numHits[(size_t) pad] ? hits[(size_t) pad][(size_t) k] : numSamples;
+                if (end > start) rv.process (pL + start, pR + start, pL + start, pR + start, end - start, pp.verb, pp.gate);
+                if (k < numHits[(size_t) pad]) rv.trigger (pp.gate);
+                start = juce::jmax (start, end);
+            }
+        }
+
+        float* dL = mL; float* dR = mR;
+        if (pp.ownOut)
+            if (auto* bus = getBus (false, pad + 1); bus != nullptr && bus->isEnabled() && bus->getNumberOfChannels() == 2)
+            {
+                auto own = getBusBuffer (buffer, false, pad + 1);
+                dL = own.getWritePointer (0); dR = own.getWritePointer (1);
+            }
+        if (dR != nullptr) { juce::FloatVectorOperations::add (dL, pL, numSamples); juce::FloatVectorOperations::add (dR, pR, numSamples); }
+        else for (int i = 0; i < numSamples; ++i) dL[i] += 0.5f * (pL[i] + pR[i]);
     }
-    if (buffer.getNumChannels() == 1) for (int i = 0; i < numSamples; ++i) L[i] = 0.5f * (L[i] + R[i]);
+
+    // master gain (smoothed) + soft safety clip on every active output
+    const float target = juce::Decibels::decibelsToGain (masterPtr->load());
+    const float startGain = masterSmoothed;
+    for (int i = 0; i < numSamples; ++i) masterSmoothed += 0.001f * (target - masterSmoothed);
+    float pk = 0.0f;
+    for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+    {
+        float* d = buffer.getWritePointer (ch);
+        float gsm = startGain;
+        for (int i = 0; i < numSamples; ++i)
+        {
+            gsm += 0.001f * (target - gsm);
+            d[i] = std::tanh (d[i] * gsm);
+            pk = std::max (pk, std::abs (d[i]));
+        }
+    }
 
     for (int pad = 0; pad < kNumPads; ++pad) padMeter[(size_t) pad].store (voices[(size_t) pad].meter());
-    float pk = 0.0f;
-    for (int i = 0; i < numSamples; ++i) pk = std::max (pk, std::max (std::abs (L[i]), std::abs (R[i])));
     if (pk > outPeak.load()) outPeak.store (pk);
 }
 
@@ -225,7 +307,8 @@ void Hex1Processor::applyKit (const Kit& kit)
 {
     for (int pad = 0; pad < kNumPads; ++pad)
         for (size_t i = 0; i < specs().size(); ++i)
-            if (auto* p = apvts.getParameter (pid (pad, specs()[i].id)))
+            if (i == 33) continue;   // a kit change never touches the pad's output routing
+            else if (auto* p = apvts.getParameter (pid (pad, specs()[i].id)))
                 p->setValueNotifyingHost (p->convertTo0to1 (fieldOf (kit[(size_t) pad], i)));
 }
 

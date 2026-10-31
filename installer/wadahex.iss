@@ -1,6 +1,8 @@
 ; Inno Setup script for WADAHEX (Windows, 64-bit)
 #define AppName "WADAHEX"
-#define AppVersion "1.0.0"
+#ifndef AppVersion
+#define AppVersion "1.1.0"
+#endif
 
 [Setup]
 AppId={{6B1E2D4A-91C3-4F7E-A8B2-5D3E1A9C7F21}

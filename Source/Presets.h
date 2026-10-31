@@ -136,6 +136,8 @@ inline const std::vector<KitDef>& factoryKits()
             return k; } },
         { "Gated Arena", [] {
             auto k = classicKit();
+            k[1].verb = 0.6f; k[1].gate = 0.55f; k[6].verb = 0.45f; k[6].gate = 0.55f;
+            for (int t = 2; t < 6; ++t) { k[(size_t) t].verb = 0.45f; k[(size_t) t].gate = 0.4f; }
             k[1].noiseDecay = 520; k[1].noiseLvl = 1.0f; k[1].drive = 0.45f; k[1].reso = 0.15f;
             k[0].toneDecay = 650; k[0].drive = 0.5f;
             for (int t = 2; t < 6; ++t) { k[(size_t) t].toneDecay = 1100; k[(size_t) t].noiseLvl = 0.3f; k[(size_t) t].noiseDecay = 300; k[(size_t) t].drive = 0.4f; }

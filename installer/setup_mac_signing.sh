@@ -10,10 +10,21 @@ INST_P12="${2:-$HOME/Desktop/DeveloperIDInstaller.p12}"
 
 say() { printf "\n\033[1;31m▶\033[0m %s\n" "$*"; }
 
-# 1. GitHub CLI
+# 1. GitHub CLI (downloaded to a private folder if it isn't installed - no Homebrew needed)
 if ! command -v gh >/dev/null 2>&1; then
-  if command -v brew >/dev/null 2>&1; then say "Installing GitHub CLI (brew install gh)"; brew install gh
-  else echo "Please install the GitHub CLI first: https://cli.github.com  (or install Homebrew)"; exit 1; fi
+  GHDIR="$HOME/.wadahex-gh"
+  if [ ! -x "$GHDIR/bin/gh" ]; then
+    say "Downloading GitHub CLI (one time)"
+    ARCH=$(uname -m); [ "$ARCH" = "x86_64" ] && ARCH=amd64
+    TAG=$(curl -fsSI https://github.com/cli/cli/releases/latest | tr -d '\r' | sed -nE 's#^[Ll]ocation: .*/tag/v(.*)$#\1#p')
+    [ -n "$TAG" ] || { echo "Could not find the latest GitHub CLI version - check your internet connection."; exit 1; }
+    TMPD=$(mktemp -d)
+    curl -fsSL -o "$TMPD/gh.zip" "https://github.com/cli/cli/releases/download/v$TAG/gh_${TAG}_macOS_${ARCH}.zip"
+    unzip -q "$TMPD/gh.zip" -d "$TMPD"
+    mkdir -p "$GHDIR"; cp -R "$TMPD"/gh_*/bin "$GHDIR/"
+    xattr -dr com.apple.quarantine "$GHDIR" 2>/dev/null || true
+  fi
+  export PATH="$GHDIR/bin:$PATH"
 fi
 gh auth status >/dev/null 2>&1 || { say "Log in to GitHub (a browser window will open)"; gh auth login -h github.com -p https -w; }
 

@@ -78,7 +78,9 @@ jobs:
           body: |
             **WADAHEX** - SDS-V style analog drum synth with an 8-bit chip layer. By Yishay Raziel.
 
-            **New in 1.1:** an 80s reverb on every pad (VERB + GATE: turn GATE up for the classic gated reverb) and separate outputs: set a pad to *OUT: OWN* and enable WADAHEX's extra outputs in your DAW (2 KICK ... 9 PERC).
+            **New in 1.2:** Mute (M) and Solo (S) on every pad; SELECT: MIDI makes the editor follow the pad your MIDI plays; reverb V.TONE from dark to bright.
+
+            **1.1:** an 80s reverb on every pad (VERB + GATE for the classic gated reverb) and separate outputs per pad (*OUT: OWN*, outputs 2 KICK ... 9 PERC).
 
             - **Mac (Apple Silicon + Intel):** download `WADAHEX_mac.dmg`, open it and run *WADAHEX Installer.pkg*. Signed and notarized by Apple.
             - **Windows (64-bit):** download `WADAHEX_win_setup.exe` and run it. If SmartScreen warns, click *More info > Run anyway*.

@@ -5,7 +5,8 @@
 ## Features
 - 8 pads (Kick, Snare, Tom 1–4, Clap, Perc), GM drum map + alt notes + chromatic C3–G3
 - Per pad: Chip (8 chips, pitch, 2–8 bit), Tone (pitch, bend ±3 oct, bend time, decay), Noise (level, decay, color), Filter (cutoff, reso, env, decay), Output (drive, dynamics, level, pan)
-- 80s reverb per pad (VERB + GATE for gated reverb), separate stereo output per pad
+- 80s reverb per pad (VERB, V.TONE dark-bright, GATE for gated reverb), separate stereo output per pad
+- Mute / solo per pad, SELECT: MIDI to follow the played pad
 - 15 factory kits incl. SDS-V matched to real SDS5 recordings, full automation, state saved with the project
 - Resizable UI (70–200%), velocity-sensitive clickable hex pads
 

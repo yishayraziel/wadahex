@@ -42,6 +42,19 @@ public:
     float getOutputPeak() { return outPeak.exchange (0.0f); }
     static juce::String pid (int pad, const char* suffix) { return "p" + juce::String (pad) + "_" + suffix; }
     static const std::vector<ParamSpec>& specs();
+    // pad mute / solo (parameters, so they automate and save)
+    bool isMuted (int pad) const { return ptrs[(size_t) pad].v[35]->load() > 0.5f; }
+    bool isSoloed (int pad) const { return ptrs[(size_t) pad].v[36]->load() > 0.5f; }
+    void toggle (int pad, const char* what)
+    {
+        if (auto* p = apvts.getParameter (pid (pad, what)))
+        {
+            p->beginChangeGesture(); p->setValueNotifyingHost (p->getValue() > 0.5f ? 0.0f : 1.0f); p->endChangeGesture();
+        }
+    }
+    // "select the pad that MIDI plays" for the editor
+    std::atomic<bool> followMidi { false };
+    std::atomic<int> midiHitPad { -1 }, midiHitCount { 0 };
 
     juce::AudioProcessorValueTreeState apvts;
 
@@ -52,7 +65,7 @@ private:
     void applyKit (const Kit& kit);
     int padForNote (int note) const;
 
-    struct PadPtrs { std::array<std::atomic<float>*, 34> v {}; };
+    struct PadPtrs { std::array<std::atomic<float>*, 37> v {}; };
     std::array<PadPtrs, kNumPads> ptrs;
     std::atomic<float>* masterPtr = nullptr;
 
@@ -67,6 +80,7 @@ private:
     uint32_t rng = 0x1234567u;
     int currentKit = 0;
     float masterSmoothed = 1.0f;
+    std::array<float, kNumPads> padGain { 1, 1, 1, 1, 1, 1, 1, 1 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Hex1Processor)
 };

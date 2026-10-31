@@ -39,6 +39,9 @@ const std::vector<ParamSpec>& Hex1Processor::specs()
         { "verb",       "Reverb",       0, 1, 0.5f, "" },
         { "gate",       "Reverb Gate",  0, 1, 0.5f, "gate" },
         { "out",        "Output",       0, 1, 0.5f, "" },
+        { "vtone",      "Reverb Tone",  0, 1, 0.5f, "" },
+        { "mute",       "Mute",         0, 1, 0.5f, "" },
+        { "solo",       "Solo",         0, 1, 0.5f, "" },
     };
     return s;
 }
@@ -62,7 +65,9 @@ static float fieldOf (const PadParams& p, size_t i)
         case 30: return p.noiseHP;
         case 31: return p.verb;
         case 32: return p.gate;
-        default: return p.ownOut ? 1.0f : 0.0f;
+        case 33: return p.ownOut ? 1.0f : 0.0f;
+        case 34: return p.verbTone;
+        default: return 0.0f;   // mute / solo start off
     }
 }
 
@@ -83,6 +88,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout Hex1Processor::createLayout(
             const juce::String id = pid (pad, s.id);
             const juce::String name = juce::String (padInfo[pad].name) + " " + s.name;
             const float def = fieldOf (kit[(size_t) pad], i);
+            if (i == 35 || i == 36)
+            {
+                group->addChild (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { id, 1 }, name,
+                                                                               juce::StringArray { "Off", "On" }, 0));
+                continue;
+            }
             if (i == 33)
             {
                 group->addChild (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { id, 1 }, name,
@@ -190,7 +201,7 @@ void Hex1Processor::readPad (int pad, PadParams& p) const
     p.toneFilt = v[22]->load() > 0.5f; p.lfoRate = v[23]->load(); p.lfoPitch = v[24]->load(); p.lfoCut = v[25]->load();
     p.noiseSweep = v[26]->load(); p.velDecay = v[27]->load(); p.analogBend = v[28]->load() > 0.5f;
     p.toneLP = v[29]->load(); p.noiseHP = v[30]->load();
-    p.verb = v[31]->load(); p.gate = v[32]->load(); p.ownOut = v[33]->load() > 0.5f;
+    p.verb = v[31]->load(); p.gate = v[32]->load(); p.ownOut = v[33]->load() > 0.5f; p.verbTone = v[34]->load();
 }
 
 int Hex1Processor::padForNote (int note) const
@@ -209,6 +220,14 @@ void Hex1Processor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
     const int numSamples = buffer.getNumSamples();
     if (numSamples == 0) return;
     for (int pad = 0; pad < kNumPads; ++pad) readPad (pad, padParams[(size_t) pad]);
+    std::array<bool, kNumPads> muted {}, soloed {};
+    bool anySolo = false;
+    for (int pad = 0; pad < kNumPads; ++pad)
+    {
+        muted[(size_t) pad]  = ptrs[(size_t) pad].v[35]->load() > 0.5f;
+        soloed[(size_t) pad] = ptrs[(size_t) pad].v[36]->load() > 0.5f;
+        anySolo = anySolo || soloed[(size_t) pad];
+    }
 
     // per-pad stereo scratch (pad p uses channels 2p, 2p+1)
     if (scratch.getNumSamples() < numSamples) scratch.setSize (2 * kNumPads, numSamples, false, false, true);
@@ -245,7 +264,11 @@ void Hex1Processor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
         const int at = juce::jlimit (0, numSamples, meta.samplePosition);
         renderTo (at);
         const int pad = padForNote (msg.getNoteNumber());
-        if (pad >= 0) hitPad (pad, msg.getFloatVelocity(), at);
+        if (pad >= 0)
+        {
+            hitPad (pad, msg.getFloatVelocity(), at);
+            midiHitPad.store (pad); midiHitCount.fetch_add (1);   // lets the editor follow MIDI
+        }
     }
     renderTo (numSamples);
 
@@ -265,10 +288,23 @@ void Hex1Processor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
             for (int k = 0; k <= numHits[(size_t) pad]; ++k)
             {
                 const int end = k < numHits[(size_t) pad] ? hits[(size_t) pad][(size_t) k] : numSamples;
-                if (end > start) rv.process (pL + start, pR + start, pL + start, pR + start, end - start, pp.verb, pp.gate);
+                if (end > start) rv.process (pL + start, pR + start, pL + start, pR + start, end - start, pp.verb, pp.gate, pp.verbTone);
                 if (k < numHits[(size_t) pad]) rv.trigger (pp.gate);
                 start = juce::jmax (start, end);
             }
+        }
+
+        // mute / solo (ramped over the block so it never clicks)
+        const bool audible = ! (muted[(size_t) pad] || (anySolo && ! soloed[(size_t) pad]));
+        const float g0 = padGain[(size_t) pad], g1 = audible ? 1.0f : 0.0f;
+        if (g0 != g1 || g1 == 0.0f)
+        {
+            for (int i = 0; i < numSamples; ++i)
+            {
+                const float gg = g0 + (g1 - g0) * (float) (i + 1) / (float) numSamples;
+                pL[i] *= gg; pR[i] *= gg;
+            }
+            padGain[(size_t) pad] = g1;
         }
 
         float* dL = mL; float* dR = mR;
@@ -307,7 +343,7 @@ void Hex1Processor::applyKit (const Kit& kit)
 {
     for (int pad = 0; pad < kNumPads; ++pad)
         for (size_t i = 0; i < specs().size(); ++i)
-            if (i == 33) continue;   // a kit change never touches the pad's output routing
+            if (i == 33 || i == 35 || i == 36) continue;   // a kit change never touches routing, mute or solo
             else if (auto* p = apvts.getParameter (pid (pad, specs()[i].id)))
                 p->setValueNotifyingHost (p->convertTo0to1 (fieldOf (kit[(size_t) pad], i)));
 }
@@ -330,6 +366,7 @@ void Hex1Processor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     state.setProperty ("kit", currentKit, nullptr);
+    state.setProperty ("followMidi", followMidi.load(), nullptr);
     if (auto xml = state.createXml()) copyXmlToBinary (*xml, destData);
 }
 
@@ -340,6 +377,7 @@ void Hex1Processor::setStateInformation (const void* data, int sizeInBytes)
         {
             auto tree = juce::ValueTree::fromXml (*xml);
             currentKit = tree.getProperty ("kit", 0);
+            followMidi.store ((bool) tree.getProperty ("followMidi", false));
             apvts.replaceState (tree);
         }
 }

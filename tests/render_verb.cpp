@@ -17,23 +17,23 @@ int main()
     const int sr = 48000, blk = 128, seg = sr * 2;
     Kit kit = factoryKits()[0].make();
     std::vector<std::vector<int8_t>> bank (8);
-    const float setting[4][2] = { { 0, 0 }, { 0.6f, 0 }, { 0.6f, 0.3f }, { 0.6f, 0.8f } };
+    const float setting[4][3] = { { 0.6f, 0, 0.1f }, { 0.6f, 0, 0.95f }, { 0.6f, 0.4f, 0.1f }, { 0.6f, 0.4f, 0.95f } };
     std::vector<float> L (seg * 4 + blk), R (seg * 4 + blk);
     uint32_t rng = 5;
     for (int k = 0; k < 4; ++k)
     {
         DrumVoice v; v.prepare (sr, &bank); Reverb80s rv; rv.prepare (sr);
-        PadParams p = kit[1]; p.verb = setting[k][0]; p.gate = setting[k][1];
+        PadParams p = kit[1]; p.verb = setting[k][0]; p.gate = setting[k][1]; p.verbTone = setting[k][2];
         for (int pos = 0; pos < seg; pos += blk)
         {
             if (pos == 0 || pos == sr) { v.trigger (1.0f, p); rv.trigger (p.gate); }
             float* l = &L[(size_t) (k * seg + pos)]; float* r = &R[(size_t) (k * seg + pos)];
             v.render (l, r, blk, p, rng);
-            rv.process (l, r, l, r, blk, p.verb, p.gate);
+            rv.process (l, r, l, r, blk, p.verb, p.gate, p.verbTone);
         }
         float tail = 0; for (int i = (int) (0.9 * sr); i < sr; ++i) tail = std::max (tail, std::abs (L[(size_t) (k * seg + i)]));
         float at300 = 0; for (int i = (int) (0.30 * sr); i < (int) (0.32 * sr); ++i) at300 = std::max (at300, std::abs (L[(size_t) (k * seg + i)]));
-        std::printf ("verb %.1f gate %.1f : level @300ms %.4f  @0.9-1.0s %.5f\n", p.verb, p.gate, at300, tail);
+        std::printf ("tone %.2f gate %.1f : level @300ms %.4f  @0.9-1.0s %.5f\n", p.verbTone, p.gate, at300, tail);
     }
     writeWav ("out/verb_test.wav", L, R, sr);
 }

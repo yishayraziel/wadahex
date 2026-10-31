@@ -43,6 +43,7 @@ struct PadParams
     float verb = 0;        // 80s reverb amount (0 = off)
     float gate = 0;        // 0 = natural tail, >0 = gated reverb (higher = shorter)
     bool  ownOut = false;  // route this pad to its own stereo output
+    float verbTone = 0.6f; // reverb colour: 0 dark .. 1 bright
 };
 
 // Topology-preserving state-variable filter (Simper/Cytomic).

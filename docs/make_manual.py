@@ -109,6 +109,7 @@ def build(path):
                     ["DYNAMICS", "How much velocity matters. High = soft hits get quieter, darker, with less bend; hard hits get slightly sharper in pitch."],
                     ["VEL DECAY", "Soft hits ring shorter, like a real pad played lightly."],
                     ["VERB", "Amount of the pad's own 80s reverb: a bright, dense room/plate. 0 = off."],
+                    ["V.TONE", "Reverb colour: down = dark, soft room; up = bright, shiny 80s plate."],
                     ["GATE", "OFF = natural reverb tail. Turn it up for the classic gated reverb: a big sustained tail chopped short "
                              "after each hit (750 ms down to 200 ms). Each pad's gate opens on its own hits."],
                     ["LEVEL", "Pad volume."], ["PAN", "Stereo position."]]),
@@ -118,6 +119,11 @@ def build(path):
         s += [KeepTogether([Paragraph(name, CELLB), Spacer(1, 2), table(rows, [28 * mm, W - 28 * mm], header=False), Spacer(1, 8)])]
     s += [Paragraph("<b>MASTER</b> (top right) sets the overall output with a gentle safety limiter. Click a value to type it in; drag knobs up/down to change them.", BODY)]
 
+    s += [Paragraph("Mute, solo and selecting pads", H2),
+          Paragraph("Each pad has two small buttons: <b>M</b> mutes it (the pad dims) and <b>S</b> solos it (cyan rim; several pads can be soloed). "
+                    "Both are automatable and are kept when you change kits. Reverb tails are muted with the pad.", BODY),
+          Paragraph("<b>SELECT: CLICK / MIDI</b> (top of the pad panel) decides which pad the controls on the right show. "
+                    "CLICK: the pad you click. MIDI: the editor jumps to whichever pad your MIDI plays, handy for tweaking while a loop runs.", BODY)]
     s += [Paragraph("Separate outputs", H2),
           Paragraph("Every pad can play on the main stereo output or on its own stereo output. Select a pad and click "
                     "<b>OUT: MAIN</b> (bottom of the pad panel) to switch it to <b>OUT: OWN</b>. Then enable WADAHEX's extra outputs in your DAW: "

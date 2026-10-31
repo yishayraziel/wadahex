@@ -43,6 +43,8 @@ public:
 
 private:
     void timerCallback() override;
+    juce::Rectangle<float> pillRect (int pad, int which) const;   // which: 0 = mute, 1 = solo
+    int lastMuteSolo = -1;
     Hex1Processor& proc;
     std::array<juce::Path, kNumPads> hexes;
     std::array<juce::Point<float>, kNumPads> centres;
@@ -82,7 +84,8 @@ private:
     juce::Image plate, logo;
     juce::ComboBox kitBox, chipBox;
     juce::TextButton prevKit, nextKit;
-    juce::TextButton toneFiltBtn { "DRY" }, curveBtn { "FAST" }, outBtn { "OUT: MAIN" };
+    juce::TextButton toneFiltBtn { "DRY" }, curveBtn { "FAST" }, outBtn { "OUT: MAIN" }, followBtn { "SELECT: CLICK" };
+    int lastMidiCount = 0;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> outAtt;
     juce::Label chipLabel, toneFiltLabel, curveLabel;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> chipAtt;

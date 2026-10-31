@@ -247,6 +247,32 @@ void PadGrid::paint (juce::Graphics& g)
             g.strokePath (makeHex (c, R - 1.0f), juce::PathStrokeType (2.0f));
         }
 
+        // mute: dim the whole face
+        if (proc.isMuted (i))
+        {
+            g.setColour (juce::Colours::black.withAlpha (0.55f));
+            g.fillPath (makeHex (c, R - 14.0f));
+        }
+        else if (proc.isSoloed (i))
+        {
+            g.setColour (cyan.withAlpha (0.8f));
+            g.strokePath (makeHex (c, R - 15.0f), juce::PathStrokeType (2.5f));
+        }
+        // M / S pills
+        for (int k = 0; k < 2; ++k)
+        {
+            const auto r = pillRect (i, k);
+            const bool on = k == 0 ? proc.isMuted (i) : proc.isSoloed (i);
+            const auto col = k == 0 ? juce::Colour (0xffffb020) : cyan;
+            g.setColour (on ? col : juce::Colour (0xff0d0b0a).withAlpha (0.85f));
+            g.fillRoundedRectangle (r, 5.0f);
+            g.setColour (on ? col.brighter (0.4f) : col.withAlpha (0.55f));
+            g.drawRoundedRectangle (r, 5.0f, 1.4f);
+            g.setFont (font (18.0f));
+            g.setColour (on ? juce::Colour (0xff111111) : col.withAlpha (0.85f));
+            g.drawText (k == 0 ? "M" : "S", r, juce::Justification::centred);
+        }
+
         // labels
         const auto nameBox = juce::Rectangle<float> (c.x - R, c.y - 36.0f, R * 2, 40.0f);
         g.setFont (font (36.0f));
@@ -259,8 +285,22 @@ void PadGrid::paint (juce::Graphics& g)
     }
 }
 
+juce::Rectangle<float> PadGrid::pillRect (int pad, int which) const
+{
+    const auto c = centres[(size_t) pad];
+    return { c.x + (which == 0 ? -40.0f : 6.0f), c.y + 48.0f, 34.0f, 24.0f };
+}
+
 void PadGrid::mouseDown (const juce::MouseEvent& e)
 {
+    for (int i = 0; i < kNumPads; ++i)
+        for (int k = 0; k < 2; ++k)
+            if (pillRect (i, k).expanded (2.0f).contains (e.position))
+            {
+                proc.toggle (i, k == 0 ? "mute" : "solo");
+                repaint();
+                return;
+            }
     for (int i = 0; i < kNumPads; ++i)
         if (hexes[(size_t) i].contains (e.position))
         {
@@ -277,6 +317,9 @@ void PadGrid::mouseDown (const juce::MouseEvent& e)
 void PadGrid::timerCallback()
 {
     bool dirty = false;
+    int ms = 0;
+    for (int i = 0; i < kNumPads; ++i) ms |= (proc.isMuted (i) ? 1 : 0) << i | (proc.isSoloed (i) ? 1 : 0) << (i + 8);
+    if (ms != lastMuteSolo) { lastMuteSolo = ms; dirty = true; }
     for (int i = 0; i < kNumPads; ++i)
     {
         const float target = juce::jlimit (0.0f, 1.0f, proc.getPadMeter (i) * 1.4f);
@@ -300,7 +343,7 @@ const std::vector<Sec>& sections()
         { 757, 1121, 508, 566, 626, 34.0f, { { -1, "SOUND" }, { 1, "LEVEL" }, { 2, "PITCH" }, { 3, "BITS" } } },
         { 1149, 1641, 508, 566, 626, 32.0f, { { 12, "CUTOFF" }, { 13, "RESO" }, { 14, "ENV" }, { 15, "DECAY" }, { 29, "TONE LP" }, { -2, "TONE IN" } } },
         { 757, 1031, 745, 803, 864, 34.0f, { { 23, "RATE" }, { 24, "PITCH" }, { 25, "CUTOFF" } } },
-        { 1060, 1641, 745, 803, 864, 29.0f, { { 20, "CLICK" }, { 16, "DRIVE" }, { 17, "DYNAMICS" }, { 27, "VEL DECAY" }, { 31, "VERB" }, { 32, "GATE" }, { 18, "LEVEL" }, { 19, "PAN" } } },
+        { 1060, 1641, 745, 803, 864, 26.0f, { { 20, "CLICK" }, { 16, "DRIVE" }, { 17, "DYNAMICS" }, { 27, "VEL DCY" }, { 31, "VERB" }, { 34, "V.TONE" }, { 32, "GATE" }, { 18, "LEVEL" }, { 19, "PAN" } } },
     };
     return s;
 }
@@ -361,6 +404,16 @@ Hex1Editor::Hex1Editor (Hex1Processor& p) : AudioProcessorEditor (p), proc (p), 
     outBtn.setTooltip ("MAIN = the pad plays on the main stereo output. OWN = the pad goes to its own stereo output "
                        "(enable WADAHEX's extra outputs in your DAW: 2 KICK, 3 SNARE ... 9 PERC).");
     content.addAndMakeVisible (outBtn);
+    followBtn.setClickingTogglesState (true);
+    followBtn.setToggleState (proc.followMidi.load(), juce::dontSendNotification);
+    followBtn.setButtonText (proc.followMidi.load() ? "SELECT: MIDI" : "SELECT: CLICK");
+    followBtn.onClick = [this] {
+        proc.followMidi.store (followBtn.getToggleState());
+        followBtn.setButtonText (followBtn.getToggleState() ? "SELECT: MIDI" : "SELECT: CLICK");
+    };
+    followBtn.setTooltip ("CLICK = choose the pad to edit by clicking it. MIDI = the editor jumps to whichever pad your MIDI plays.");
+    content.addAndMakeVisible (followBtn);
+    lastMidiCount = proc.midiHitCount.load();
 
     for (int i = 0; i < chips::kNumChips; ++i) chipBox.addItem (chips::names[i], i + 1);
     content.addAndMakeVisible (chipBox);
@@ -433,6 +486,7 @@ void Hex1Editor::layoutContent()
     nextKit.setBounds (1237, 53, 48, 48);
     master.slider.setBounds (1461, 42, 100, 100);
     outBtn.setBounds (548, 842, 150, 38);
+    followBtn.setBounds (528, 178, 170, 34);
 
     size_t kIdx = 0;
     for (auto& sec : sections())
@@ -458,6 +512,13 @@ void Hex1Editor::layoutContent()
 
 void Hex1Editor::timerCallback()
 {
+    const int cnt = proc.midiHitCount.load();
+    if (cnt != lastMidiCount)
+    {
+        lastMidiCount = cnt;
+        const int p = proc.midiHitPad.load();
+        if (proc.followMidi.load() && p >= 0 && p != selectedPad) selectPad (p);
+    }
     const float pk = proc.getOutputPeak();
     meterL = pk > meterL ? pk : meterL * 0.86f;
     if (pk >= meterHold) { meterHold = pk; holdFrames = 30; }

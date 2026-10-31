@@ -2,6 +2,7 @@
 // Build: g++ -O2 -std=c++17 -I../Source render_events.cpp -o render_events
 // Use:   ./render_events out.wav [kitIndex] < events.txt
 #include "Presets.h"
+#include "Reverb80s.h"
 #include <cstdio>
 #include <iostream>
 #include <string>
@@ -31,6 +32,9 @@ int main (int argc, char** argv)
     std::vector<std::vector<int8_t>> bank;
     for (int c = 0; c < chips::kNumChips; ++c) bank.push_back (chips::make (c));
     std::array<DrumVoice, kNumPads> v; for (auto& x : v) x.prepare (sr, &bank);
+    std::array<Reverb80s, kNumPads> rv; for (auto& r : rv) r.prepare (sr);
+    if (argc > 4) for (int p = 1; p < 8; ++p) if (p != 7) { kit[(size_t) p].verb = (float) std::atof (argv[3]); kit[(size_t) p].gate = (float) std::atof (argv[4]); }
+    std::vector<float> pl (block), pr (block);
     std::vector<std::tuple<double, int, int>> ev; double t; int n, vel;
     while (std::cin >> t >> n >> vel) ev.emplace_back (t, n, vel);
     const size_t total = (size_t) ((std::get<0> (ev.back()) + 2.5) * sr);
@@ -42,10 +46,16 @@ int main (int argc, char** argv)
         {
             for (int p = 0; p < kNumPads; ++p)
                 if (padInfo[p].note == std::get<1> (ev[e]) || padInfo[p].altNote == std::get<1> (ev[e]))
-                    v[(size_t) p].trigger (std::get<2> (ev[e]) / 127.0f, kit[(size_t) p]);
+                { v[(size_t) p].trigger (std::get<2> (ev[e]) / 127.0f, kit[(size_t) p]); rv[(size_t) p].trigger (kit[(size_t) p].gate); }
             ++e;
         }
-        for (int p = 0; p < kNumPads; ++p) v[(size_t) p].render (&L[pos], &R[pos], block, kit[(size_t) p], rng);
+        for (int p = 0; p < kNumPads; ++p)
+        {
+            std::fill (pl.begin(), pl.end(), 0.0f); std::fill (pr.begin(), pr.end(), 0.0f);
+            v[(size_t) p].render (pl.data(), pr.data(), block, kit[(size_t) p], rng);
+            rv[(size_t) p].process (pl.data(), pr.data(), pl.data(), pr.data(), block, kit[(size_t) p].verb, kit[(size_t) p].gate);
+            for (int i = 0; i < block; ++i) { L[pos + (size_t) i] += pl[(size_t) i]; R[pos + (size_t) i] += pr[(size_t) i]; }
+        }
         pos += block;
     }
     L.resize (total); R.resize (total);

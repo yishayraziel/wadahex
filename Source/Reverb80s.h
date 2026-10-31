@@ -31,7 +31,7 @@ public:
         for (auto& a : ap) std::fill (a.begin(), a.end(), 0.0f);
         std::fill (pre.begin(), pre.end(), 0.0f);
         pos.fill (0); apPos.fill (0); damp.fill (0.0f);
-        prePos = 0; hp = 0.0f; gateEnv = 0.0f; holdLeft = 0; energy = 0.0f;
+        prePos = 0; hp = 0.0f; inLp = 0.0f; gateEnv = 0.0f; holdLeft = 0; energy = 0.0f;
     }
 
     // a hit on the pad: (re)opens the gate for the hold time set by `gate`
@@ -41,13 +41,16 @@ public:
     bool isSilent() const { return energy < 1.0e-7f && amountSm < 1.0e-4f; }
 
     // adds the wet signal of (inL, inR) into (outL, outR)
-    void process (const float* inL, const float* inR, float* outL, float* outR, int n, float amount, float gate)
+    void process (const float* inL, const float* inR, float* outL, float* outR, int n, float amount, float gate, float tone = 0.6f)
     {
         const bool gated = gate > 0.005f;
         const float rt = gated ? 3.5f : 1.5f;                          // gated verbs sustain until the gate cuts them
         holdSamples = holdFor (gate);
         for (int i = 0; i < 8; ++i) g[(size_t) i] = std::pow (10.0f, -3.0f * (float) len[(size_t) i] / (rt * sr));
-        const float dampC = 1.0f - std::exp (-6.2831853f * 7500.0f / sr);   // bright loop damping
+        // TONE: 0 = dark (soft, damped room) .. 1 = bright (shiny plate)
+        const float t = std::clamp (tone, 0.0f, 1.0f);
+        const float dampC = 1.0f - std::exp (-6.2831853f * std::min (0.45f * sr, 1800.0f * std::pow (2.0f, t * 3.2f)) / sr);
+        const float inLpC = 1.0f - std::exp (-6.2831853f * std::min (0.45f * sr, 2200.0f * std::pow (2.0f, t * 3.4f)) / sr);
         const float hpC   = 1.0f - std::exp (-6.2831853f * 180.0f / sr);    // keep the low end out of the verb
         const float atk = 1.0f / (0.002f * sr), rel = 1.0f / (0.012f * sr);
         const float target = amount * amount * 1.4f;
@@ -60,6 +63,7 @@ public:
             float x = 0.5f * (inL[s] + inR[s]);
             const float d = pre[(size_t) prePos]; pre[(size_t) prePos] = x; prePos = (prePos + 1) % (int) pre.size(); x = d;
             hp += hpC * (x - hp); x -= hp;
+            inLp += inLpC * (x - inLp); x = inLp;
             // two-stage diffusion
             for (int a = 0; a < 4; ++a)
             {
@@ -105,6 +109,6 @@ private:
     std::array<int, 4> apLen {}, apPos {};
     std::vector<float> pre;
     int prePos = 0, holdSamples = 0, holdLeft = 0;
-    float hp = 0.0f, gateEnv = 0.0f, amountSm = 0.0f, energy = 0.0f;
+    float inLp = 0.0f, hp = 0.0f, gateEnv = 0.0f, amountSm = 0.0f, energy = 0.0f;
     bool gateOpen = false;
 };

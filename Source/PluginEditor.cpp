@@ -42,6 +42,12 @@ HexLookAndFeel::HexLookAndFeel()
     setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff0b1015));
     setColour (juce::TextEditor::highlightColourId, cyan.withAlpha (0.3f));
     setColour (juce::CaretComponent::caretColourId, cyan);
+    setColour (juce::AlertWindow::backgroundColourId, juce::Colour (0xff15171a));
+    setColour (juce::AlertWindow::textColourId, cream);
+    setColour (juce::AlertWindow::outlineColourId, cyan.withAlpha (0.6f));
+    setColour (juce::TextEditor::outlineColourId, cyan.withAlpha (0.5f));
+    setColour (juce::TextEditor::focusedOutlineColourId, cyan);
+    setColour (juce::PopupMenu::headerTextColourId, cyan);
 }
 
 void HexLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w, int h, float pos, float start, float end, juce::Slider& s)
@@ -171,9 +177,15 @@ PadGrid::PadGrid (Hex1Processor& p) : proc (p) { startTimerHz (40); }
 
 void PadGrid::resized()
 {
-    // centres from the design, in skin pixels (this component sits at the skin origin)
+    // 3-4-3 honeycomb inside the pad panel (skin pixels; this component sits at the skin origin)
+    // top: TOM 1-3 | middle: TOM 4, CLAP, HH CL, HH OP | bottom: SNARE, KICK, PERC
+    const float R = radius, dx = R * 1.7320508f + 8.0f, dy = R * 1.5f + 7.0f;
+    const float cx = 376.5f, cy = 522.0f;
+    auto mid = [&] (int i) { return juce::Point<float> (cx + dx * ((float) i - 1.5f), cy); };
+    auto row = [&] (int i, float y) { return juce::Point<float> (cx + dx * ((float) i - 1.0f), y); };
     const juce::Point<float> c[kNumPads] = {
-        { 380, 712 }, { 158, 712 }, { 158, 340 }, { 380, 340 }, { 602, 340 }, { 269, 526 }, { 491, 526 }, { 602, 712 } };
+        row (1, cy + dy), row (0, cy + dy), row (0, cy - dy), row (1, cy - dy), row (2, cy - dy),
+        mid (0), mid (1), row (2, cy + dy), mid (2), mid (3) };
     for (int i = 0; i < kNumPads; ++i) { centres[(size_t) i] = c[i]; hexes[(size_t) i] = makeHex (c[i], radius); }
 }
 
@@ -268,27 +280,27 @@ void PadGrid::paint (juce::Graphics& g)
             g.fillRoundedRectangle (r, 5.0f);
             g.setColour (on ? col.brighter (0.4f) : col.withAlpha (0.55f));
             g.drawRoundedRectangle (r, 5.0f, 1.4f);
-            g.setFont (font (18.0f));
+            g.setFont (font (16.0f));
             g.setColour (on ? juce::Colour (0xff111111) : col.withAlpha (0.85f));
             g.drawText (k == 0 ? "M" : "S", r, juce::Justification::centred);
         }
 
         // labels
-        const auto nameBox = juce::Rectangle<float> (c.x - R, c.y - 36.0f, R * 2, 40.0f);
-        g.setFont (font (36.0f));
+        const auto nameBox = juce::Rectangle<float> (c.x - R, c.y - 31.0f, R * 2, 34.0f);
+        g.setFont (font (29.0f));
         g.setColour (juce::Colours::black.withAlpha (0.6f)); g.drawText (padInfo[i].name, nameBox.translated (0, 2), juce::Justification::centred);
         g.setColour (juce::Colour (0xfff3e9da)); g.drawText (padInfo[i].name, nameBox, juce::Justification::centred);
-        g.setFont (font (23.0f, false));
+        g.setFont (font (19.0f, false));
         g.setColour (gl > 0.5f ? juce::Colour (0xffffe0d6) : juce::Colour (0xffff3b2a));
         g.drawText (juce::MidiMessage::getMidiNoteName (padInfo[i].note, true, true, 3),
-                    juce::Rectangle<float> (c.x - R, c.y + 8.0f, R * 2, 28.0f), juce::Justification::centred);
+                    juce::Rectangle<float> (c.x - R, c.y + 3.0f, R * 2, 24.0f), juce::Justification::centred);
     }
 }
 
 juce::Rectangle<float> PadGrid::pillRect (int pad, int which) const
 {
     const auto c = centres[(size_t) pad];
-    return { c.x + (which == 0 ? -40.0f : 6.0f), c.y + 48.0f, 34.0f, 24.0f };
+    return { c.x + (which == 0 ? -34.0f : 4.0f), c.y + 33.0f, 30.0f, 21.0f };
 }
 
 void PadGrid::mouseDown (const juce::MouseEvent& e)
@@ -342,7 +354,7 @@ const std::vector<Sec>& sections()
         { 1277, 1641, 253, 313, 376, 31.0f, { { 9, "LEVEL" }, { 10, "DECAY" }, { 11, "COLOR" }, { 26, "SWEEP" }, { 30, "HP" } } },
         { 757, 1121, 508, 566, 626, 34.0f, { { -1, "SOUND" }, { 1, "LEVEL" }, { 2, "PITCH" }, { 3, "BITS" } } },
         { 1149, 1641, 508, 566, 626, 32.0f, { { 12, "CUTOFF" }, { 13, "RESO" }, { 14, "ENV" }, { 15, "DECAY" }, { 29, "TONE LP" }, { -2, "TONE IN" } } },
-        { 757, 1031, 745, 803, 864, 34.0f, { { 23, "RATE" }, { 24, "PITCH" }, { 25, "CUTOFF" } } },
+        { 757, 1031, 745, 803, 864, 29.0f, { { 23, "RATE" }, { 24, "PITCH" }, { 25, "CUTOFF" }, { 38, "DRIFT" } } },
         { 1060, 1641, 745, 803, 864, 26.0f, { { 20, "CLICK" }, { 16, "DRIVE" }, { 17, "DYNAMICS" }, { 27, "VEL DCY" }, { 31, "VERB" }, { 34, "V.TONE" }, { 32, "GATE" }, { 18, "LEVEL" }, { 19, "PAN" } } },
     };
     return s;
@@ -404,6 +416,13 @@ Hex1Editor::Hex1Editor (Hex1Processor& p) : AudioProcessorEditor (p), proc (p), 
     outBtn.setTooltip ("MAIN = the pad plays on the main stereo output. OWN = the pad goes to its own stereo output "
                        "(enable WADAHEX's extra outputs in your DAW: 2 KICK, 3 SNARE ... 9 PERC).");
     content.addAndMakeVisible (outBtn);
+    keysBtn.setClickingTogglesState (true);
+    keysBtn.onStateChange = [this] { keysBtn.setButtonText (keysBtn.getToggleState() ? "KEYS: ON" : "KEYS: OFF"); };
+    keysBtn.setTooltip ("KEYS ON = play this pad chromatically from the keyboard: notes from C3 up, C4 = the pad's own pitch.");
+    content.addAndMakeVisible (keysBtn);
+    soundBtn.setTooltip ("Load a sound onto the selected pad: the 64 SDS5-matched sounds or any pad from the factory kits.");
+    soundBtn.onClick = [this] { showSoundMenu(); };
+    content.addAndMakeVisible (soundBtn);
     followBtn.setClickingTogglesState (true);
     followBtn.setToggleState (proc.followMidi.load(), juce::dontSendNotification);
     followBtn.setButtonText (proc.followMidi.load() ? "SELECT: MIDI" : "SELECT: CLICK");
@@ -420,12 +439,11 @@ Hex1Editor::Hex1Editor (Hex1Processor& p) : AudioProcessorEditor (p), proc (p), 
 
     kitBox.setName ("lcd");
     kitBox.setColour (juce::ComboBox::textColourId, cyan);
-    for (int i = 0; i < proc.getNumPrograms(); ++i) kitBox.addItem (proc.getProgramName (i), i + 1);
-    kitBox.setSelectedId (proc.getCurrentProgram() + 1, juce::dontSendNotification);
-    kitBox.onChange = [this] { proc.setCurrentProgram (kitBox.getSelectedId() - 1); };
+    rebuildKitMenu();
+    kitBox.onChange = [this] { kitChosen(); };
     prevKit.setName ("invisible"); nextKit.setName ("invisible");
-    prevKit.onClick = [this] { const int n = kitBox.getNumItems(); kitBox.setSelectedId ((kitBox.getSelectedId() - 2 + n) % n + 1); };
-    nextKit.onClick = [this] { const int n = kitBox.getNumItems(); kitBox.setSelectedId (kitBox.getSelectedId() % n + 1); };
+    prevKit.onClick = [this] { stepKit (-1); };
+    nextKit.onClick = [this] { stepKit (+1); };
     content.addAndMakeVisible (kitBox); content.addAndMakeVisible (prevKit); content.addAndMakeVisible (nextKit);
 
     styleKnob (master.slider, 40.0f);
@@ -468,6 +486,9 @@ void Hex1Editor::selectPad (int pad)
     outAtt.reset();
     outAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, Hex1Processor::pid (pad, "out"), outBtn);
     outBtn.setButtonText (outBtn.getToggleState() ? "OUT: OWN" : "OUT: MAIN");
+    keysAtt.reset();
+    keysAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, Hex1Processor::pid (pad, "keys"), keysBtn);
+    keysBtn.setButtonText (keysBtn.getToggleState() ? "KEYS: ON" : "KEYS: OFF");
     content.repaint (500, 840, 220, 50);
 }
 
@@ -485,7 +506,9 @@ void Hex1Editor::layoutContent()
     prevKit.setBounds (820, 53, 48, 48);
     nextKit.setBounds (1237, 53, 48, 48);
     master.slider.setBounds (1461, 42, 100, 100);
-    outBtn.setBounds (548, 842, 150, 38);
+    soundBtn.setBounds (268, 842, 140, 38);
+    keysBtn.setBounds (416, 842, 126, 38);
+    outBtn.setBounds (550, 842, 148, 38);
     followBtn.setBounds (528, 178, 170, 34);
 
     size_t kIdx = 0;
@@ -508,6 +531,127 @@ void Hex1Editor::layoutContent()
             k.slider.setBounds (cx - cw / 2, sec.knobY - a, cw, 2 * a + 24);
         }
     }
+}
+
+// ---------------------------------------------------------------- kit menu
+void Hex1Editor::rebuildKitMenu()
+{
+    kitBox.clear (juce::dontSendNotification);
+    kitIds.clear();
+    for (int i = 0; i < proc.getNumPrograms(); ++i) { kitBox.addItem (proc.getProgramName (i), i + 1); kitIds.push_back (i + 1); }
+    userKits = Hex1Processor::userKitNames();
+    kitBox.addSectionHeading ("MY KITS");
+    if (userKits.isEmpty()) { kitBox.addItem ("(none yet - use Save Kit As...)", 999); kitBox.setItemEnabled (999, false); }
+    for (int i = 0; i < userKits.size(); ++i) { kitBox.addItem (userKits[i], 1001 + i); kitIds.push_back (1001 + i); }
+    kitBox.addSeparator();
+    kitBox.addItem ("Save Kit As...", 9001);
+    kitBox.addItem ("Export One-Shots (WAV)...", 9002);
+    kitBox.addItem ("Show My Kits Folder", 9003);
+    int sel = proc.getCurrentProgram() + 1;
+    const int u = userKits.indexOf (proc.currentKitName);
+    if (u >= 0 && proc.getProgramName (proc.getCurrentProgram()) != proc.currentKitName) sel = 1001 + u;
+    lastKitId = sel;
+    kitBox.setSelectedId (sel, juce::dontSendNotification);
+}
+
+void Hex1Editor::kitChosen()
+{
+    const int id = kitBox.getSelectedId();
+    if (id >= 9001)
+    {
+        kitBox.setSelectedId (lastKitId, juce::dontSendNotification);
+        juce::MessageManager::callAsync ([safe = juce::Component::SafePointer<Hex1Editor> (this), id] {
+            if (safe == nullptr) return;
+            if (id == 9001) safe->saveKitDialog();
+            else if (id == 9002) safe->exportDialog();
+            else { Hex1Processor::userKitDir().createDirectory(); Hex1Processor::userKitDir().revealToUser(); }
+        });
+        return;
+    }
+    if (id >= 1001) proc.loadUserKit (userKits[id - 1001]);
+    else if (id >= 1) proc.setCurrentProgram (id - 1);
+    else return;
+    lastKitId = id;
+}
+
+void Hex1Editor::stepKit (int dir)
+{
+    if (kitIds.empty()) return;
+    auto it = std::find (kitIds.begin(), kitIds.end(), lastKitId);
+    int idx = it == kitIds.end() ? 0 : (int) (it - kitIds.begin());
+    idx = (idx + dir + (int) kitIds.size()) % (int) kitIds.size();
+    kitBox.setSelectedId (kitIds[(size_t) idx]);
+}
+
+void Hex1Editor::saveKitDialog()
+{
+    auto* w = new juce::AlertWindow ("Save Kit", "Name your kit. It will be available in every project, under MY KITS.",
+                                     juce::MessageBoxIconType::NoIcon, this);
+    w->addTextEditor ("name", proc.currentKitName);
+    w->addButton ("SAVE", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    w->addButton ("CANCEL", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    addAndMakeVisible (w);
+    w->setCentrePosition (getLocalBounds().getCentre());
+    w->enterModalState (true, juce::ModalCallbackFunction::create ([this, w] (int r) {
+        if (r != 1) return;
+        const auto name = w->getTextEditorContents ("name").trim();
+        if (name.isEmpty()) return;
+        if (proc.saveUserKit (name)) rebuildKitMenu();
+    }), true);
+}
+
+void Hex1Editor::exportDialog()
+{
+    chooser = std::make_unique<juce::FileChooser> ("Choose a folder for the one-shots",
+                  juce::File::getSpecialLocation (juce::File::userDesktopDirectory));
+    chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+        [this] (const juce::FileChooser& fc) {
+            const auto dir = fc.getResult();
+            if (dir == juce::File()) return;
+            const auto target = dir.getChildFile (juce::File::createLegalFileName ("WADAHEX " + proc.currentKitName));
+            const int n = proc.exportOneShots (target);
+            juce::AlertWindow::showAsync (juce::MessageBoxOptions().withIconType (juce::MessageBoxIconType::NoIcon)
+                                             .withTitle ("Export One-Shots")
+                                             .withMessage (juce::String (n) + " WAV files (48 kHz / 24-bit) saved to\n" + target.getFullPathName())
+                                             .withButton ("OK").withAssociatedComponent (this), nullptr);
+            target.revealToUser();
+        });
+}
+
+// ---------------------------------------------------------------- per-pad sound browser
+void Hex1Editor::showSoundMenu()
+{
+    juce::PopupMenu m;
+    m.addSectionHeader ("LOAD ONTO " + juce::String (padInfo[selectedPad].name));
+    const auto& snd = sds5Sounds();
+    for (const char* cat : { "Kicks", "Snares", "Toms", "Rims" })
+    {
+        juce::PopupMenu sub;
+        for (size_t i = 0; i < snd.size(); ++i)
+            if (juce::String (snd[i].category) == cat) sub.addItem ((int) i + 1, snd[i].name);
+        m.addSubMenu (juce::String ("SDS5 ") + cat, sub);
+    }
+    m.addSeparator();
+    juce::PopupMenu fromKits;
+    const auto& kits = factoryKits();
+    for (size_t k = 0; k < kits.size(); ++k)
+    {
+        juce::PopupMenu sub;
+        for (int p = 0; p < kNumPads; ++p) sub.addItem (1000 + (int) k * 16 + p, padInfo[p].name);
+        fromKits.addSubMenu (kits[k].name, sub);
+    }
+    m.addSubMenu ("From Factory Kits", fromKits);
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&soundBtn),
+        [safe = juce::Component::SafePointer<Hex1Editor> (this)] (int r) {
+            if (safe == nullptr || r <= 0) return;
+            auto& ed = *safe;
+            if (r < 1000) ed.proc.applyPad (ed.selectedPad, sds5Sounds()[(size_t) (r - 1)].params);
+            else
+            {
+                const int k = (r - 1000) / 16, p = (r - 1000) % 16;
+                ed.proc.applyPad (ed.selectedPad, factoryKits()[(size_t) k].make()[(size_t) p]);
+            }
+        });
 }
 
 void Hex1Editor::timerCallback()
@@ -538,10 +682,6 @@ void Hex1Editor::Content::paint (juce::Graphics& g)
         g.drawImage (ed.logo, juce::Rectangle<float> (60.0f, 842.0f, w, h), juce::RectanglePlacement::stretchToFit);
         g.setOpacity (1.0f);
     }
-    const int pad = ed.selectedPad;
-    g.setColour (cream.withAlpha (0.75f)); g.setFont (font (17.0f, false));
-    g.drawText ("MIDI " + juce::MidiMessage::getMidiNoteName (padInfo[pad].note, true, true, 3) + " (" + juce::String (padInfo[pad].note)
-                + ")   alt " + juce::String (padInfo[pad].altNote), 290, 850, 246, 22, juce::Justification::centredRight);
 
     // output LED meter: 2 columns x 12 segments, green-free retro red/amber
     const int segs = 12;

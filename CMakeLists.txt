@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(HEX1 VERSION 1.2.0)
+project(HEX1 VERSION 1.3.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -54,3 +54,13 @@ target_compile_definitions(HEX1 PUBLIC
 target_link_libraries(HEX1
   PRIVATE HEX1Data juce::juce_audio_utils juce::juce_dsp
   PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_lto_flags juce::juce_recommended_warning_flags)
+
+# Optional: headless processor tests (cmake -DHEX1_TESTS=ON)
+option(HEX1_TESTS "Build processor tests" OFF)
+if(HEX1_TESTS)
+  add_executable(hex1_tests tests/processor_test.cpp)
+  target_include_directories(hex1_tests PRIVATE $<TARGET_PROPERTY:HEX1,INCLUDE_DIRECTORIES>)
+  target_compile_definitions(hex1_tests PRIVATE $<TARGET_PROPERTY:HEX1,COMPILE_DEFINITIONS>)
+  target_compile_features(hex1_tests PRIVATE cxx_std_17)
+  target_link_libraries(hex1_tests PRIVATE HEX1)
+endif()

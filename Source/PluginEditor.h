@@ -49,7 +49,7 @@ private:
     std::array<juce::Path, kNumPads> hexes;
     std::array<juce::Point<float>, kNumPads> centres;
     std::array<float, kNumPads> glow {};
-    float radius = 124;
+    float radius = 93;
     int selected = 0;
 };
 
@@ -85,6 +85,18 @@ private:
     juce::ComboBox kitBox, chipBox;
     juce::TextButton prevKit, nextKit;
     juce::TextButton toneFiltBtn { "DRY" }, curveBtn { "FAST" }, outBtn { "OUT: MAIN" }, followBtn { "SELECT: CLICK" };
+    juce::TextButton keysBtn { "KEYS: OFF" }, soundBtn { "SOUND" };
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> keysAtt;
+    std::unique_ptr<juce::FileChooser> chooser;
+    juce::StringArray userKits;
+    std::vector<int> kitIds;
+    int lastKitId = 1;
+    void rebuildKitMenu();
+    void kitChosen();
+    void stepKit (int dir);
+    void saveKitDialog();
+    void exportDialog();
+    void showSoundMenu();
     int lastMidiCount = 0;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> outAtt;
     juce::Label chipLabel, toneFiltLabel, curveLabel;

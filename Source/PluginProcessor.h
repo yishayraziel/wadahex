@@ -52,6 +52,16 @@ public:
             p->beginChangeGesture(); p->setValueNotifyingHost (p->getValue() > 0.5f ? 0.0f : 1.0f); p->endChangeGesture();
         }
     }
+    // kits, sounds, export (message thread)
+    static juce::File userKitDir();
+    static juce::StringArray userKitNames();
+    bool saveUserKit (const juce::String& name);
+    bool loadUserKit (const juce::String& name);
+    void applyPad (int pad, const PadParams& pp);
+    int exportOneShots (const juce::File& folder);
+    juce::String currentKitName { "SDS-V" };
+    void markKit (int index) { currentKit = index; }
+
     // "select the pad that MIDI plays" for the editor
     std::atomic<bool> followMidi { false };
     std::atomic<int> midiHitPad { -1 }, midiHitCount { 0 };
@@ -63,9 +73,10 @@ private:
     static BusesProperties makeBuses();
     void readPad (int pad, PadParams& p) const;
     void applyKit (const Kit& kit);
+    static bool isPerformanceParam (size_t specIndex);
     int padForNote (int note) const;
 
-    struct PadPtrs { std::array<std::atomic<float>*, 37> v {}; };
+    struct PadPtrs { std::array<std::atomic<float>*, 39> v {}; };
     std::array<PadPtrs, kNumPads> ptrs;
     std::atomic<float>* masterPtr = nullptr;
 
@@ -80,7 +91,7 @@ private:
     uint32_t rng = 0x1234567u;
     int currentKit = 0;
     float masterSmoothed = 1.0f;
-    std::array<float, kNumPads> padGain { 1, 1, 1, 1, 1, 1, 1, 1 };
+    std::array<float, kNumPads> padGain { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Hex1Processor)
 };

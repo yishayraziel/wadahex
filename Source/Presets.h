@@ -2,14 +2,33 @@
 #include "DrumVoice.h"
 #include <array>
 #include <functional>
+#include <string>
 
-static constexpr int kNumPads = 8;
+static constexpr int kNumPads = 10;
+static constexpr int kHatClosed = 8, kHatOpen = 9;
 
-struct PadInfo { const char* name; int note; int altNote; };
+struct PadInfo { const char* name; int note; int altNote; };   // GM drum map (altNote -1 = none)
 inline const PadInfo padInfo[kNumPads] = {
     { "KICK",  36, 35 }, { "SNARE", 38, 40 }, { "TOM 1", 48, 50 }, { "TOM 2", 45, 47 },
-    { "TOM 3", 43, 44 }, { "TOM 4", 41, 42 }, { "CLAP",  39, 46 }, { "PERC",  37, 49 }
+    { "TOM 3", 43, -1 }, { "TOM 4", 41, -1 }, { "CLAP",  39, -1 }, { "PERC",  37, 56 },
+    { "HH CL", 42, 44 }, { "HH OP", 46, 49 }
 };
+
+// Hi-hats: six detuned square oscillators + bright noise through a steep high-pass.
+inline PadParams hatClosed()
+{
+    PadParams q; q.metal = true; q.chip = 7; q.tonePitch = 420; q.bend = 0; q.analogBend = false; q.bendTime = 20;
+    q.toneDecay = 75; q.toneLvl = 0.75f; q.noiseLvl = 0.65f; q.noiseDecay = 65; q.noiseColor = 1.0f; q.noiseHP = 6500;
+    q.toneFilt = true; q.cutoff = 15000; q.reso = 0.25f; q.filtEnv = 0; q.click = 0.15f; q.drive = 0.15f;
+    q.velSens = 0.65f; q.velDecay = 0.3f; q.level = 0.45f; q.pan = 0.25f; q.drift = 0.3f;
+    return q;
+}
+inline PadParams hatOpen() { auto q = hatClosed(); q.toneDecay = 650; q.noiseDecay = 520; q.level = 0.4f; return q; }
+inline void addHats (std::array<PadParams, kNumPads>& k)
+{
+    if (! k[kHatClosed].metal) k[kHatClosed] = hatClosed();
+    if (! k[kHatOpen].metal)   k[kHatOpen]   = hatOpen();
+}
 
 using Kit = std::array<PadParams, kNumPads>;
 #include "SDS5Library.h"
@@ -101,7 +120,7 @@ inline Kit sdsvKit()
 
 struct KitDef { const char* name; std::function<Kit()> make; };
 
-inline const std::vector<KitDef>& factoryKits()
+inline const std::vector<KitDef>& rawFactoryKits()
 {
     static const std::vector<KitDef> kits = {
         { "SDS-V", [] { return sds5Kits()[0].make(); } },
@@ -143,5 +162,25 @@ inline const std::vector<KitDef>& factoryKits()
             for (int t = 2; t < 6; ++t) { k[(size_t) t].toneDecay = 1100; k[(size_t) t].noiseLvl = 0.3f; k[(size_t) t].noiseDecay = 300; k[(size_t) t].drive = 0.4f; }
             return k; } },
     };
+    return kits;
+}
+
+// Every factory kit gets hi-hats; the SDS kits also get a touch of analog drift.
+inline const std::vector<KitDef>& factoryKits()
+{
+    static const std::vector<KitDef> kits = [] {
+        std::vector<KitDef> out;
+        for (const auto& k : rawFactoryKits())
+        {
+            const bool sds = std::string (k.name).rfind ("SDS", 0) == 0;
+            auto make = k.make;
+            out.push_back ({ k.name, [make, sds] {
+                auto kit = make();
+                addHats (kit);
+                if (sds) for (int p = 0; p < 8; ++p) if (kit[(size_t) p].drift == 0.0f) kit[(size_t) p].drift = 0.2f;
+                return kit; } });
+        }
+        return out;
+    }();
     return kits;
 }

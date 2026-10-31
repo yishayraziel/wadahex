@@ -42,6 +42,8 @@ const std::vector<ParamSpec>& Hex1Processor::specs()
         { "vtone",      "Reverb Tone",  0, 1, 0.5f, "" },
         { "mute",       "Mute",         0, 1, 0.5f, "" },
         { "solo",       "Solo",         0, 1, 0.5f, "" },
+        { "keys",       "Keys",         0, 1, 0.5f, "" },
+        { "drift",      "Drift",        0, 1, 0.5f, "" },
     };
     return s;
 }
@@ -67,6 +69,8 @@ static float fieldOf (const PadParams& p, size_t i)
         case 32: return p.gate;
         case 33: return p.ownOut ? 1.0f : 0.0f;
         case 34: return p.verbTone;
+        case 37: return p.keys ? 1.0f : 0.0f;
+        case 38: return p.drift;
         default: return 0.0f;   // mute / solo start off
     }
 }
@@ -88,7 +92,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout Hex1Processor::createLayout(
             const juce::String id = pid (pad, s.id);
             const juce::String name = juce::String (padInfo[pad].name) + " " + s.name;
             const float def = fieldOf (kit[(size_t) pad], i);
-            if (i == 35 || i == 36)
+            if (i == 35 || i == 36 || i == 37)
             {
                 group->addChild (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { id, 1 }, name,
                                                                                juce::StringArray { "Off", "On" }, 0));
@@ -184,6 +188,7 @@ bool Hex1Processor::isBusesLayoutSupported (const BusesLayout& layouts) const
 void Hex1Processor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     for (auto& v : voices) v.prepare (sampleRate, &chipBank);
+    for (int p = 0; p < kNumPads; ++p) voices[(size_t) p].seedDrift (0x9E3779B9u * (uint32_t) (p + 1));
     for (auto& r : reverbs) r.prepare (sampleRate);
     scratch.setSize (2 * kNumPads, juce::jmax (512, samplesPerBlock), false, true, false);
 }
@@ -202,6 +207,7 @@ void Hex1Processor::readPad (int pad, PadParams& p) const
     p.noiseSweep = v[26]->load(); p.velDecay = v[27]->load(); p.analogBend = v[28]->load() > 0.5f;
     p.toneLP = v[29]->load(); p.noiseHP = v[30]->load();
     p.verb = v[31]->load(); p.gate = v[32]->load(); p.ownOut = v[33]->load() > 0.5f; p.verbTone = v[34]->load();
+    p.keys = v[37]->load() > 0.5f; p.drift = v[38]->load(); p.metal = pad >= kHatClosed;
 }
 
 int Hex1Processor::padForNote (int note) const
@@ -236,9 +242,10 @@ void Hex1Processor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
     // where each pad was hit inside this block (keys the reverb gate)
     std::array<std::array<int, 16>, kNumPads> hits {};
     std::array<int, kNumPads> numHits {};
-    auto hitPad = [&] (int pad, float vel, int at)
+    auto hitPad = [&] (int pad, float vel, int at, float keyMul = 1.0f)
     {
-        voices[(size_t) pad].trigger (vel, padParams[(size_t) pad]);
+        voices[(size_t) pad].trigger (vel, padParams[(size_t) pad], keyMul);
+        if (pad == kHatClosed) voices[(size_t) kHatOpen].choke();   // closed hat cuts the open hat
         if (numHits[(size_t) pad] < 16) hits[(size_t) pad][(size_t) numHits[(size_t) pad]++] = at;
     };
 
@@ -263,7 +270,22 @@ void Hex1Processor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
         if (! msg.isNoteOn()) continue;
         const int at = juce::jlimit (0, numSamples, meta.samplePosition);
         renderTo (at);
-        const int pad = padForNote (msg.getNoteNumber());
+        const int note = msg.getNoteNumber();
+        bool anyKeys = false;
+        for (int pad = 0; pad < kNumPads; ++pad) anyKeys = anyKeys || padParams[(size_t) pad].keys;
+        if (anyKeys && note >= 60)
+        {
+            // KEYS: notes from C3 (60) up play the pad chromatically; C4 (72) = the pad's own pitch
+            const float mul = std::pow (2.0f, (float) (note - 72) / 12.0f);
+            for (int pad = 0; pad < kNumPads; ++pad)
+                if (padParams[(size_t) pad].keys)
+                {
+                    hitPad (pad, msg.getFloatVelocity(), at, mul);
+                    midiHitPad.store (pad); midiHitCount.fetch_add (1);
+                }
+            continue;
+        }
+        const int pad = padForNote (note);
         if (pad >= 0)
         {
             hitPad (pad, msg.getFloatVelocity(), at);
@@ -339,13 +361,121 @@ void Hex1Processor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
     if (pk > outPeak.load()) outPeak.store (pk);
 }
 
+bool Hex1Processor::isPerformanceParam (size_t i) { return i == 33 || i == 35 || i == 36 || i == 37; } // out, mute, solo, keys
+
+void Hex1Processor::applyPad (int pad, const PadParams& pp)
+{
+    for (size_t i = 0; i < specs().size(); ++i)
+        if (! isPerformanceParam (i))   // kit / sound changes never touch routing, mute, solo or keys
+            if (auto* p = apvts.getParameter (pid (pad, specs()[i].id)))
+                p->setValueNotifyingHost (p->convertTo0to1 (fieldOf (pp, i)));
+}
+
 void Hex1Processor::applyKit (const Kit& kit)
 {
+    for (int pad = 0; pad < kNumPads; ++pad) applyPad (pad, kit[(size_t) pad]);
+}
+
+// ---------------------------------------------------------------- user kits
+juce::File Hex1Processor::userKitDir()
+{
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+             .getChildFile ("YRAZIEL").getChildFile ("WADAHEX").getChildFile ("Kits");
+}
+
+juce::StringArray Hex1Processor::userKitNames()
+{
+    juce::StringArray names;
+    for (auto& f : userKitDir().findChildFiles (juce::File::findFiles, false, "*.wadakit"))
+        names.add (f.getFileNameWithoutExtension());
+    names.sortNatural();
+    return names;
+}
+
+bool Hex1Processor::saveUserKit (const juce::String& name)
+{
+    juce::XmlElement root ("WADAHEXKIT");
+    root.setAttribute ("name", name);
+    root.setAttribute ("version", JucePlugin_VersionString);
     for (int pad = 0; pad < kNumPads; ++pad)
+    {
+        auto* e = root.createNewChildElement ("PAD");
+        e->setAttribute ("index", pad);
+        e->setAttribute ("name", padInfo[pad].name);
         for (size_t i = 0; i < specs().size(); ++i)
-            if (i == 33 || i == 35 || i == 36) continue;   // a kit change never touches routing, mute or solo
-            else if (auto* p = apvts.getParameter (pid (pad, specs()[i].id)))
-                p->setValueNotifyingHost (p->convertTo0to1 (fieldOf (kit[(size_t) pad], i)));
+            if (! isPerformanceParam (i))
+                if (auto* p = apvts.getParameter (pid (pad, specs()[i].id)))
+                    e->setAttribute (specs()[i].id, p->convertFrom0to1 (p->getValue()));
+    }
+    const auto dir = userKitDir();
+    if (! dir.createDirectory()) return false;
+    const auto ok = root.writeTo (dir.getChildFile (juce::File::createLegalFileName (name) + ".wadakit"));
+    if (ok) currentKitName = name;
+    return ok;
+}
+
+bool Hex1Processor::loadUserKit (const juce::String& name)
+{
+    auto xml = juce::XmlDocument::parse (userKitDir().getChildFile (name + ".wadakit"));
+    if (xml == nullptr || ! xml->hasTagName ("WADAHEXKIT")) return false;
+    for (auto* e : xml->getChildWithTagNameIterator ("PAD"))
+    {
+        const int pad = e->getIntAttribute ("index", -1);
+        if (pad < 0 || pad >= kNumPads) continue;
+        for (size_t i = 0; i < specs().size(); ++i)
+            if (! isPerformanceParam (i) && e->hasAttribute (specs()[i].id))
+                if (auto* p = apvts.getParameter (pid (pad, specs()[i].id)))
+                    p->setValueNotifyingHost (p->convertTo0to1 ((float) e->getDoubleAttribute (specs()[i].id)));
+    }
+    currentKitName = name;
+    return true;
+}
+
+// ---------------------------------------------------------------- one-shot export
+int Hex1Processor::exportOneShots (const juce::File& folder)
+{
+    const double sr = 48000.0;
+    const int len = (int) (sr * 3.0), blk = 256;
+    if (! folder.createDirectory()) return 0;
+    juce::WavAudioFormat wav;
+    int written = 0;
+    for (int pad = 0; pad < kNumPads; ++pad)
+    {
+        PadParams pp; readPad (pad, pp);
+        DrumVoice v; v.prepare (sr, &chipBank); v.seedDrift (12345u + (uint32_t) pad);
+        Reverb80s rv; rv.prepare (sr);
+        juce::AudioBuffer<float> buf (2, len); buf.clear();
+        uint32_t r = 777u;
+        pp.drift = 0.0f;   // the reference hit, no randomness
+        v.trigger (1.0f, pp); rv.trigger (pp.gate);
+        for (int pos = 0; pos < len; pos += blk)
+        {
+            const int n = juce::jmin (blk, len - pos);
+            float* l = buf.getWritePointer (0) + pos; float* rr = buf.getWritePointer (1) + pos;
+            v.render (l, rr, n, pp, r);
+            rv.process (l, rr, l, rr, n, pp.verb, pp.gate, pp.verbTone);
+        }
+        // trim the silent tail (-72 dB) and fade the last 10 ms
+        int end = len;
+        while (end > 1 && buf.getMagnitude (end - 1, 1) < 2.5e-4f) --end;
+        end = juce::jmin (len, end + (int) (0.01 * sr));
+        const int fade = juce::jmin (end, (int) (0.01 * sr));
+        for (int ch = 0; ch < 2; ++ch) buf.applyGainRamp (ch, end - fade, fade, 1.0f, 0.0f);
+        const auto peak = buf.getMagnitude (0, end);
+        if (peak > 0.98f) buf.applyGain (0.98f / peak);
+        const auto name = juce::File::createLegalFileName ("WADAHEX " + currentKitName + " - "
+                              + juce::String (pad + 1).paddedLeft ('0', 2) + " " + padInfo[pad].name + ".wav");
+        auto file = folder.getChildFile (name);
+        file.deleteFile();
+        std::unique_ptr<juce::OutputStream> os (file.createOutputStream().release());
+        if (os == nullptr) continue;
+        std::unique_ptr<juce::AudioFormatWriter> w (wav.createWriterFor (os.get(), sr, 2, 24, {}, 0));
+        if (w == nullptr) continue;
+        os.release();
+        w->writeFromAudioSampleBuffer (buf, 0, end);
+        ++written;
+    }
+    return written;
 }
 
 void Hex1Processor::setCurrentProgram (int index)
@@ -353,6 +483,7 @@ void Hex1Processor::setCurrentProgram (int index)
     const auto& kits = factoryKits();
     if (index < 0 || index >= (int) kits.size()) return;
     currentKit = index;
+    currentKitName = kits[(size_t) index].name;
     applyKit (kits[(size_t) index].make());
 }
 
@@ -367,6 +498,7 @@ void Hex1Processor::getStateInformation (juce::MemoryBlock& destData)
     auto state = apvts.copyState();
     state.setProperty ("kit", currentKit, nullptr);
     state.setProperty ("followMidi", followMidi.load(), nullptr);
+    state.setProperty ("kitName", currentKitName, nullptr);
     if (auto xml = state.createXml()) copyXmlToBinary (*xml, destData);
 }
 
@@ -378,6 +510,7 @@ void Hex1Processor::setStateInformation (const void* data, int sizeInBytes)
             auto tree = juce::ValueTree::fromXml (*xml);
             currentKit = tree.getProperty ("kit", 0);
             followMidi.store ((bool) tree.getProperty ("followMidi", false));
+            currentKitName = tree.getProperty ("kitName", factoryKits()[(size_t) juce::jlimit (0, (int) factoryKits().size() - 1, currentKit)].name).toString();
             apvts.replaceState (tree);
         }
 }

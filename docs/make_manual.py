@@ -67,12 +67,13 @@ def build(path):
 
     s += [PageBreak(), Paragraph("Pads &amp; MIDI map", H2),
           Paragraph("Pads follow the General MIDI drum map, so most drum clips and e-kits play it straight away. "
-                    "Each pad also answers an alternate note, and C3-G3 (60-67) play pads 1-8 chromatically. "
+                    "Most pads also answer an alternate note, and C3-A3 (60-69) play the ten pads in order (unless a pad is on KEYS). "
                     "Click a pad to select and audition it: clicking the <b>centre</b> gives a hard hit, the <b>edge</b> a soft one.", BODY),
           table([["Pad", "Note", "Alt", "Chromatic"],
                  ["KICK", "C1 (36)", "35", "60"], ["SNARE", "D1 (38)", "40", "61"], ["TOM 1", "C2 (48)", "50", "62"],
-                 ["TOM 2", "A1 (45)", "47", "63"], ["TOM 3", "G1 (43)", "44", "64"], ["TOM 4", "F1 (41)", "42", "65"],
-                 ["CLAP", "D#1 (39)", "46", "66"], ["PERC", "C#1 (37)", "49", "67"]],
+                 ["TOM 2", "A1 (45)", "47", "63"], ["TOM 3", "G1 (43)", "-", "64"], ["TOM 4", "F1 (41)", "-", "65"],
+                 ["CLAP", "D#1 (39)", "-", "66"], ["PERC", "C#1 (37)", "56", "67"],
+                 ["HH CL", "F#1 (42)", "44 (pedal)", "68"], ["HH OP", "A#1 (46)", "49 (crash)", "69"]],
                 [30 * mm, 35 * mm, 25 * mm, 30 * mm]),
           Paragraph("Note names use the C3 = 60 convention (Cubase, Logic, Ableton). In DAWs that use C4 = 60 the kick shows as C2.", SMALL)]
 
@@ -103,7 +104,8 @@ def build(path):
                     ["TONE LP", "A gentle low-pass on the oscillator only: the SDS-V's 'filtered triangle' output. Lower = rounder, more drum-like tone."],
                     ["TONE IN", "DRY = SDS-V routing, the tone skips the filter. FILTERED = the whole voice goes through it."]]),
         ("LFO", [["RATE", "LFO speed, 0.1-40 Hz. Fast rates on a short tone give rimshot / metallic tones; slow rates a wobble."],
-                 ["PITCH", "LFO to oscillator pitch, up to +/-1 octave."], ["CUTOFF", "LFO to filter cutoff, up to +/-2 octaves."]]),
+                 ["PITCH", "LFO to oscillator pitch, up to +/-1 octave."], ["CUTOFF", "LFO to filter cutoff, up to +/-2 octaves."],
+                 ["DRIFT", "Analog drift: every hit varies slightly in pitch, decay, level and filter, like real hardware. The SDS kits start at 20%."]]),
         ("OUTPUT", [["CLICK", "The impact transient that gives the analog pads their attack. Gets louder with harder hits."],
                     ["DRIVE", "Soft saturation. Thickens and glues the layers."],
                     ["DYNAMICS", "How much velocity matters. High = soft hits get quieter, darker, with less bend; hard hits get slightly sharper in pitch."],
@@ -119,6 +121,18 @@ def build(path):
         s += [KeepTogether([Paragraph(name, CELLB), Spacer(1, 2), table(rows, [28 * mm, W - 28 * mm], header=False), Spacer(1, 8)])]
     s += [Paragraph("<b>MASTER</b> (top right) sets the overall output with a gentle safety limiter. Click a value to type it in; drag knobs up/down to change them.", BODY)]
 
+    s += [Paragraph("Hi-hats", H2),
+          Paragraph("<b>HH CL</b> and <b>HH OP</b> use a metallic voice: six detuned square oscillators plus noise through a steep high-pass, "
+                    "the classic analog hi-hat recipe. PITCH sets the metal colour, NOISE HP the high-pass (brightness), TONE/NOISE DECAY the length. "
+                    "A closed hat chokes a ringing open hat. Give HH OP a long decay for a cymbal.", BODY)]
+    s += [Paragraph("Sounds, kits and export", H2),
+          Paragraph("<b>SOUND</b> (bottom of the pad panel) loads a sound onto the selected pad: any of the 64 sounds matched to real SDS5 recordings "
+                    "(kicks, snares, toms, rims), or any pad from the factory kits.", BODY),
+          Paragraph("<b>Save Kit As...</b> in the KIT menu saves all ten pads as your own kit; it appears under MY KITS in every project. "
+                    "<b>Export One-Shots (WAV)...</b> renders every pad of the current kit, with its reverb, to 48 kHz / 24-bit WAV files "
+                    "for any sampler. <b>Show My Kits Folder</b> opens the folder so you can back up or share kits (.wadakit files).", BODY),
+          Paragraph("<b>KEYS</b>: turn it on for a pad to play it chromatically from the keyboard - notes from C3 (60) up, C4 (72) is the pad's own pitch. "
+                    "Great for melodic tom lines. Several pads can be on KEYS at once (they layer).", BODY)]
     s += [Paragraph("Mute, solo and selecting pads", H2),
           Paragraph("Each pad has two small buttons: <b>M</b> mutes it (the pad dims) and <b>S</b> solos it (cyan rim; several pads can be soloed). "
                     "Both are automatable and are kept when you change kits. Reverb tails are muted with the pad.", BODY),
@@ -127,7 +141,7 @@ def build(path):
     s += [Paragraph("Separate outputs", H2),
           Paragraph("Every pad can play on the main stereo output or on its own stereo output. Select a pad and click "
                     "<b>OUT: MAIN</b> (bottom of the pad panel) to switch it to <b>OUT: OWN</b>. Then enable WADAHEX's extra outputs in your DAW: "
-                    "they are named <b>2 KICK, 3 SNARE, 4 TOM 1, 5 TOM 2, 6 TOM 3, 7 TOM 4, 8 CLAP, 9 PERC</b>. The pad's reverb travels with it. "
+                    "they are named <b>2 KICK, 3 SNARE, 4 TOM 1, 5 TOM 2, 6 TOM 3, 7 TOM 4, 8 CLAP, 9 PERC, 10 HH CL, 11 HH OP</b>. The pad's reverb travels with it. "
                     "If an output isn't enabled in the DAW, the pad stays on the main output so nothing goes silent. Changing kits keeps your routing.", BODY),
           Paragraph("Logic: load WADAHEX as Multi Output and add the extra channels with + on the mixer. Ableton: create MIDI tracks with "
                     "Audio From = WADAHEX and pick the output. Cubase: activate the outputs in the instrument's output menu. "

@@ -1,0 +1,7 @@
+build/
+/JUCE
+tests/out/
+tests/render_test
+.DS_Store
+tools/fit/*.so
+__pycache__/

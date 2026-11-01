@@ -29,17 +29,17 @@ struct PadParams
     float velSens = 0.6f;  // 0..1
     float level = 0.8f;    // linear gain
     float pan = 0;         // -1..1
-    // --- SDS-V voice additions
+    // --- classic hex-pad voice additions
     float click = 0.0f;    // impact click amount
-    float shape = 0.2f;    // 0 sine .. 1 triangle (the SDS-V VCO is a triangle)
-    bool  toneFilt = true; // tone through the filter (false = SDS-V style: filter acts on noise + click only)
+    float shape = 0.2f;    // 0 sine .. 1 triangle (the classic analog drum VCO is a triangle)
+    bool  toneFilt = true; // tone through the filter (false = classic routing: filter acts on noise + click only)
     float lfoRate = 6;     // Hz
     float lfoPitch = 0;    // 0..1 -> up to +/-1 octave
     float lfoCut = 0;      // 0..1 -> up to +/-2 octaves
     float noiseSweep = 0;  // -1..1 noise filter sweep (+/-4 oct, follows filter envelope)
     float velDecay = 0;    // 0..1 soft hits get shorter
-    bool  analogBend = false; // true: SDS-V curve - PITCH is the strike pitch and it decays in Hz toward pitch / 2^(4*bend)
-    float toneLP = 20000;  // Hz: the SDS-V "filtered triangle" output (20 kHz = open)
+    bool  analogBend = false; // true: classic analog curve - PITCH is the strike pitch and it decays in Hz toward pitch / 2^(4*bend)
+    float toneLP = 20000;  // Hz: the classic "filtered triangle" output (20 kHz = open)
     float noiseHP = 20;    // Hz: high-pass on the noise after the noise-tone low-pass (20 Hz = off)
     float verb = 0;        // 80s reverb amount (0 = off)
     float gate = 0;        // 0 = natural tail, >0 = gated reverb (higher = shorter)
@@ -132,7 +132,7 @@ public:
         const float lfoP = p.lfoPitch * p.lfoPitch;           // squared for finer control at low depths
         const float lfoC = p.lfoCut * 2.0f;
 
-        // noise tone = low-pass cutoff on white noise (SDS-V style), 200 Hz .. 18 kHz
+        // noise tone = low-pass cutoff on white noise (classic analog style), 200 Hz .. 18 kHz
         const float nCutBase = 200.0f * std::pow (2.0f, p.noiseColor * 6.5f);
         const float hpCoef = 1.0f - std::exp (-6.2831853f * std::max (20.0f, p.noiseHP) / sr);
         const bool  toneLPOn = p.toneLP < 19000.0f;
@@ -221,7 +221,7 @@ public:
             float bp;
             float x;
             if (p.toneFilt) x = filt.process (tone + noise + chipS, bp);
-            else            x = tone + filt.process (noise + chipS, bp); // SDS-V routing
+            else            x = tone + filt.process (noise + chipS, bp); // classic hex-pad routing
             x += clickS;                                                  // click sits on top, unfiltered
             if (p.metal)
             {   // hats: 12 dB/oct high-pass at the HP knob (min 400 Hz)

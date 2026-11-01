@@ -31,7 +31,7 @@ inline void addHats (std::array<PadParams, kNumPads>& k)
 }
 
 using Kit = std::array<PadParams, kNumPads>;
-#include "SDS5Library.h"
+#include "VintageLibrary.h"
 
 // The reference kit: big bendy toms, crack snare, chip-assisted kick.
 inline Kit classicKit()
@@ -72,11 +72,11 @@ inline Kit classicKit()
     return k;
 }
 
-// SDS-V voicing: triangle VCO left dry, filter on noise + click only, click on every
-// channel, no chips on the drum channels. Clap and Perc are extras the SDS-V didn't have.
-inline Kit sdsvKit()
+// Classic hex-pad voicing: triangle VCO left dry, filter on noise + click only, click on every
+// channel, no chips on the drum channels.
+inline Kit handTunedKit()
 {
-    // Voiced against measurements of real SDS5 one-shots: strike pitch decaying in Hz
+    // Voiced against measurements of vintage hardware one-shots: strike pitch decaying in Hz
     // (tau ~0.19 s kick, ~0.17 s snare, ~0.3 s toms), ~2 octaves audible fall, noise on
     // toms and snare, bright impact click. bendTime = tau * 6.9 (it is a 60 dB time).
     Kit k;
@@ -107,7 +107,7 @@ inline Kit sdsvKit()
         tm.level = 0.75f; tm.pan = tomPan[t];
     }
 
-    auto& cl = k[6];   // extra: noise clap with the clap chip for the bursts (the SDS-V had no clap)
+    auto& cl = k[6];   // noise clap with the clap chip for the bursts
     cl.chip = 3; cl.chipLvl = 0.7f; cl.chipBits = 8; cl.toneLvl = 0; cl.noiseLvl = 0.55f; cl.noiseDecay = 200; cl.analogBend = false;
     cl.noiseColor = 0.65f; cl.click = 0.2f; cl.cutoff = 8000; cl.reso = 0.25f; cl.filtEnv = 0.1f; cl.level = 0.65f; cl.pan = -0.15f;
 
@@ -123,20 +123,20 @@ struct KitDef { const char* name; std::function<Kit()> make; };
 inline const std::vector<KitDef>& rawFactoryKits()
 {
     static const std::vector<KitDef> kits = {
-        { "SDS-V", [] { return sds5Kits()[0].make(); } },
-        { "SDS-V Wobble", [] {
-            auto k = sds5Kits()[0].make();
+        { "Hex Classic", [] { return hexKits()[0].make(); } },
+        { "Hex Wobble", [] {
+            auto k = hexKits()[0].make();
             for (int t = 2; t < 6; ++t) { k[(size_t) t].lfoRate = 9; k[(size_t) t].lfoPitch = 0.3f; k[(size_t) t].toneDecay = 1300; }
             k[1].lfoRate = 4; k[1].lfoCut = 0.4f;
             return k; } },
-        { "SDS5 Library 1", [] { return sds5Kits()[1].make(); } },
-        { "SDS5 Library 2", [] { return sds5Kits()[2].make(); } },
-        { "SDS5 Library 3", [] { return sds5Kits()[3].make(); } },
-        { "SDS5 Library 4", [] { return sds5Kits()[4].make(); } },
-        { "SDS5 Library 5", [] { return sds5Kits()[5].make(); } },
-        { "SDS5 Library 6", [] { return sds5Kits()[6].make(); } },
-        { "SDS-V Hand-Tuned", [] { return sdsvKit(); } },
-        { "Classic Hex", [] { return classicKit(); } },
+        { "Vintage Kit 1", [] { return hexKits()[1].make(); } },
+        { "Vintage Kit 2", [] { return hexKits()[2].make(); } },
+        { "Vintage Kit 3", [] { return hexKits()[3].make(); } },
+        { "Vintage Kit 4", [] { return hexKits()[4].make(); } },
+        { "Vintage Kit 5", [] { return hexKits()[5].make(); } },
+        { "Vintage Kit 6", [] { return hexKits()[6].make(); } },
+        { "Hex Hand-Tuned", [] { return handTunedKit(); } },
+        { "Hybrid Hex", [] { return classicKit(); } },
         { "Pew Pew Toms", [] {
             auto k = classicKit();
             for (int t = 2; t < 6; ++t) { k[(size_t) t].bend = 0.95f; k[(size_t) t].bendTime = 700; k[(size_t) t].toneDecay = 1300; k[(size_t) t].reso = 0.55f; }
@@ -165,19 +165,20 @@ inline const std::vector<KitDef>& rawFactoryKits()
     return kits;
 }
 
-// Every factory kit gets hi-hats; the SDS kits also get a touch of analog drift.
+// Every factory kit gets hi-hats; the matched hex kits also get a touch of analog drift.
 inline const std::vector<KitDef>& factoryKits()
 {
     static const std::vector<KitDef> kits = [] {
         std::vector<KitDef> out;
         for (const auto& k : rawFactoryKits())
         {
-            const bool sds = std::string (k.name).rfind ("SDS", 0) == 0;
+            const std::string nm (k.name);
+            const bool matched = nm.rfind ("Hex", 0) == 0 || nm.rfind ("Vintage", 0) == 0;
             auto make = k.make;
-            out.push_back ({ k.name, [make, sds] {
+            out.push_back ({ k.name, [make, matched] {
                 auto kit = make();
                 addHats (kit);
-                if (sds) for (int p = 0; p < 8; ++p) if (kit[(size_t) p].drift == 0.0f) kit[(size_t) p].drift = 0.2f;
+                if (matched) for (int p = 0; p < 8; ++p) if (kit[(size_t) p].drift == 0.0f) kit[(size_t) p].drift = 0.2f;
                 return kit; } });
         }
         return out;

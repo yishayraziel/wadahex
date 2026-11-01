@@ -406,10 +406,10 @@ Hex1Editor::Hex1Editor (Hex1Processor& p) : AudioProcessorEditor (p), proc (p), 
 
     curveBtn.setClickingTogglesState (true);
     curveBtn.onStateChange = [this] { curveBtn.setButtonText (curveBtn.getToggleState() ? "ANLG" : "FAST"); };
-    curveBtn.setTooltip ("ANLG = SDS-V analog curve: PITCH is the strike pitch, falling in Hz over BEND TIME. FAST = quick sweep down to PITCH.");
+    curveBtn.setTooltip ("ANLG = classic analog curve: PITCH is the strike pitch, falling in Hz over BEND TIME. FAST = quick sweep down to PITCH.");
     toneFiltBtn.setClickingTogglesState (true);
     toneFiltBtn.onStateChange = [this] { toneFiltBtn.setButtonText (toneFiltBtn.getToggleState() ? "FILTERED" : "DRY"); };
-    toneFiltBtn.setTooltip ("DRY = SDS-V routing: filter acts on noise + click only. FILTERED = whole voice through the filter.");
+    toneFiltBtn.setTooltip ("DRY = classic hex-pad routing: filter acts on noise + click only. FILTERED = whole voice through the filter.");
     content.addAndMakeVisible (curveBtn); content.addAndMakeVisible (toneFiltBtn);
     outBtn.setClickingTogglesState (true);
     outBtn.onStateChange = [this] { outBtn.setButtonText (outBtn.getToggleState() ? "OUT: OWN" : "OUT: MAIN"); };
@@ -420,7 +420,7 @@ Hex1Editor::Hex1Editor (Hex1Processor& p) : AudioProcessorEditor (p), proc (p), 
     keysBtn.onStateChange = [this] { keysBtn.setButtonText (keysBtn.getToggleState() ? "KEYS: ON" : "KEYS: OFF"); };
     keysBtn.setTooltip ("KEYS ON = play this pad chromatically from the keyboard: notes from C3 up, C4 = the pad's own pitch.");
     content.addAndMakeVisible (keysBtn);
-    soundBtn.setTooltip ("Load a sound onto the selected pad: the 64 SDS5-matched sounds or any pad from the factory kits.");
+    soundBtn.setTooltip ("Load a sound onto the selected pad: 64 sounds matched to vintage hardware or any pad from the factory kits.");
     soundBtn.onClick = [this] { showSoundMenu(); };
     content.addAndMakeVisible (soundBtn);
     followBtn.setClickingTogglesState (true);
@@ -623,13 +623,13 @@ void Hex1Editor::showSoundMenu()
 {
     juce::PopupMenu m;
     m.addSectionHeader ("LOAD ONTO " + juce::String (padInfo[selectedPad].name));
-    const auto& snd = sds5Sounds();
+    const auto& snd = vintageSounds();
     for (const char* cat : { "Kicks", "Snares", "Toms", "Rims" })
     {
         juce::PopupMenu sub;
         for (size_t i = 0; i < snd.size(); ++i)
             if (juce::String (snd[i].category) == cat) sub.addItem ((int) i + 1, snd[i].name);
-        m.addSubMenu (juce::String ("SDS5 ") + cat, sub);
+        m.addSubMenu (juce::String ("Vintage ") + cat, sub);
     }
     m.addSeparator();
     juce::PopupMenu fromKits;
@@ -645,7 +645,7 @@ void Hex1Editor::showSoundMenu()
         [safe = juce::Component::SafePointer<Hex1Editor> (this)] (int r) {
             if (safe == nullptr || r <= 0) return;
             auto& ed = *safe;
-            if (r < 1000) ed.proc.applyPad (ed.selectedPad, sds5Sounds()[(size_t) (r - 1)].params);
+            if (r < 1000) ed.proc.applyPad (ed.selectedPad, vintageSounds()[(size_t) (r - 1)].params);
             else
             {
                 const int k = (r - 1000) / 16, p = (r - 1000) % 16;

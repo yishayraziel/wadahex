@@ -52,7 +52,7 @@ def build(path):
                     "a <b>triangle VCO</b> with a pitch <b>bend</b> sweep, <b>filtered noise</b> with its own sweep, an <b>impact click</b> "
                     "and a resonant low-pass filter working on the noise and click, plus an <b>LFO</b> for wobble and rimshot-style tones. "
                     "On top of that sits an optional <b>8-bit chip</b> layer for hybrid, sample-assisted hits.", BODY),
-          Paragraph("Load the <b>SDS-V</b> kit for the authentic analog voicing; the other kits use the hybrid chip + analog sound.", BODY),
+          Paragraph("Load the <b>Hex Classic</b> kit for the authentic analog hex-pad voicing; the other kits use the hybrid chip + analog sound.", BODY),
           Image(os.path.join(HERE, "wadahex_ui.png"), width=W, height=W * 678 / 1204), Spacer(1, 4)]
 
     s += [Paragraph("Installation", H2),
@@ -78,7 +78,7 @@ def build(path):
           Paragraph("Note names use the C3 = 60 convention (Cubase, Logic, Ableton). In DAWs that use C4 = 60 the kick shows as C2.", SMALL)]
 
     s += [Paragraph("Signal flow", H2),
-          Paragraph("TONE IN = DRY (SDS-V):  TONE  +  FILTER( NOISE + CLICK + CHIP )  ->  DRIVE  ->  LEVEL / PAN  ->  MASTER", CELLB),
+          Paragraph("TONE IN = DRY (classic):  TONE  +  FILTER( NOISE + CLICK + CHIP )  ->  DRIVE  ->  LEVEL / PAN  ->  MASTER", CELLB),
           Paragraph("TONE IN = FILTERED:  FILTER( TONE + NOISE + CLICK + CHIP )  ->  DRIVE  ->  LEVEL / PAN  ->  MASTER", CELLB),
           Spacer(1, 4),
           Paragraph("Every pad is its own voice with its own settings. A new hit on a pad restarts it (no click), just like hitting the real pad again.", BODY)]
@@ -87,13 +87,13 @@ def build(path):
         ("TONE", [["PITCH", "Resting pitch of the oscillator, 25 Hz - 1.2 kHz."],
                   ["BEND", "The signature sweep. Positive starts above the pitch and falls to it (classic tom \"pew\"); negative rises up to it. Up to 3 octaves."],
                   ["BEND TIME", "How long the sweep takes (up to 3 s). Short = punch, long = the big 80s fall."],
-                  ["CURVE", "ANLG = the SDS-V analog curve: PITCH is the strike pitch and it falls in Hz, almost all the way down, over BEND TIME. "
-                            "Measured against real SDS5 recordings. FAST = a quick sweep from above that settles on PITCH."],
+                  ["CURVE", "ANLG = the classic analog curve: PITCH is the strike pitch and it falls in Hz, almost all the way down, over BEND TIME. "
+                            "Measured against vintage hardware recordings. FAST = a quick sweep from above that settles on PITCH."],
                   ["DECAY", "Length of the tone."],
-                  ["SHAPE", "Oscillator waveform, sine to triangle. The SDS-V VCO is a triangle: turn up for the buzzy, hollow body, down for a rounder tone."],
+                  ["SHAPE", "Oscillator waveform, sine to triangle. The classic analog drum VCO is a triangle: turn up for the buzzy, hollow body, down for a rounder tone."],
                   ["LEVEL", "Tone amount in the mix."]]),
         ("NOISE", [["LEVEL", "Noise amount - the snare wires, the air on toms."], ["DECAY", "Noise length. Long noise on the snare = gated arena."],
-                   ["COLOR", "Noise tone: the low-pass cutoff on the white noise, 200 Hz to 18 kHz, like the SDS-V's NOISE TONE knob."],
+                   ["COLOR", "Noise tone: the low-pass cutoff on the white noise, 200 Hz to 18 kHz, like the NOISE TONE knob on the classic analog modules."],
                    ["SWEEP", "Sweeps the noise filter with the filter envelope, up to 4 octaves either way. Positive = bright crack that darkens."],
                    ["HP", "High-pass on the noise (20 Hz = off). Thins the noise out: use it for crisp snares and airy toms."]]),
         ("CHIP", [["SOUND", "Which 8-bit chip plays: KICK, SNARE, TOM, CLAP, RIM, METAL, ZAP or OFF."],
@@ -101,11 +101,11 @@ def build(path):
                   ["BITS", "Bit depth, 8 down to 2. Fewer bits = more crunch."]]),
         ("FILTER", [["CUTOFF", "Low-pass cutoff for the noise, click and chip (and the tone when TONE IN is FILTERED)."], ["RESO", "Resonance. High values ring and almost whistle."],
                     ["ENV", "How far the filter opens on the hit (up to 6 octaves above cutoff)."], ["DECAY", "How fast it closes again."],
-                    ["TONE LP", "A gentle low-pass on the oscillator only: the SDS-V's 'filtered triangle' output. Lower = rounder, more drum-like tone."],
-                    ["TONE IN", "DRY = SDS-V routing, the tone skips the filter. FILTERED = the whole voice goes through it."]]),
+                    ["TONE LP", "A gentle low-pass on the oscillator only: the 'filtered triangle' output of the classic modules. Lower = rounder, more drum-like tone."],
+                    ["TONE IN", "DRY = classic routing, the tone skips the filter. FILTERED = the whole voice goes through it."]]),
         ("LFO", [["RATE", "LFO speed, 0.1-40 Hz. Fast rates on a short tone give rimshot / metallic tones; slow rates a wobble."],
                  ["PITCH", "LFO to oscillator pitch, up to +/-1 octave."], ["CUTOFF", "LFO to filter cutoff, up to +/-2 octaves."],
-                 ["DRIFT", "Analog drift: every hit varies slightly in pitch, decay, level and filter, like real hardware. The SDS kits start at 20%."]]),
+                 ["DRIFT", "Analog drift: every hit varies slightly in pitch, decay, level and filter, like real hardware. The Hex and Vintage kits start at 20%."]]),
         ("OUTPUT", [["CLICK", "The impact transient that gives the analog pads their attack. Gets louder with harder hits."],
                     ["DRIVE", "Soft saturation. Thickens and glues the layers."],
                     ["DYNAMICS", "How much velocity matters. High = soft hits get quieter, darker, with less bend; hard hits get slightly sharper in pitch."],
@@ -126,7 +126,7 @@ def build(path):
                     "the classic analog hi-hat recipe. PITCH sets the metal colour, NOISE HP the high-pass (brightness), TONE/NOISE DECAY the length. "
                     "A closed hat chokes a ringing open hat. Give HH OP a long decay for a cymbal.", BODY)]
     s += [Paragraph("Sounds, kits and export", H2),
-          Paragraph("<b>SOUND</b> (bottom of the pad panel) loads a sound onto the selected pad: any of the 64 sounds matched to real SDS5 recordings "
+          Paragraph("<b>SOUND</b> (bottom of the pad panel) loads a sound onto the selected pad: any of the 64 sounds matched to recordings of vintage analog hardware "
                     "(kicks, snares, toms, rims), or any pad from the factory kits.", BODY),
           Paragraph("<b>Save Kit As...</b> in the KIT menu saves all ten pads as your own kit; it appears under MY KITS in every project. "
                     "<b>Export One-Shots (WAV)...</b> renders every pad of the current kit, with its reverb, to 48 kHz / 24-bit WAV files "
@@ -148,11 +148,11 @@ def build(path):
                     "FL Studio: route the plugin's outputs to mixer tracks in its Processing tab.", SMALL)]
     s += [KeepTogether([Paragraph("Factory kits", H2),
           table([["Kit", "Character"],
-                 ["SDS-V", "Every drum matched by computer to a real SDS5 kit recording (kick, snare, four toms, rimshot). Pure synthesis, fully editable."],
-                 ["SDS-V Wobble", "SDS-V with LFO on the toms and snare filter for that vibrating, slightly unstable analog character."],
-                 ["SDS5 Library 1-6", "Six more kits matched to individual SDS5 one-shots: different kicks, snares and tom sets (high to low)."],
-                 ["SDS-V Hand-Tuned", "The earlier by-ear SDS-V voicing, kept for comparison."],
-                 ["Classic Hex", "Hybrid chip + analog reference sound: bendy toms, cracking snare, chip-assisted kick."],
+                 ["Hex Classic", "Every drum matched by computer to a recording of a vintage analog hex-pad kit (kick, snare, four toms, rimshot). Pure synthesis, fully editable."],
+                 ["Hex Wobble", "Hex Classic with LFO on the toms and snare filter for that vibrating, slightly unstable analog character."],
+                 ["Vintage Kit 1-6", "Six more kits matched to individual vintage one-shots: different kicks, snares and tom sets (high to low)."],
+                 ["Hex Hand-Tuned", "The earlier by-ear voicing, kept for comparison."],
+                 ["Hybrid Hex", "Hybrid chip + analog reference sound: bendy toms, cracking snare, chip-assisted kick."],
                  ["Pew Pew Toms", "Toms pushed to the extreme: full bend, long sweeps, more resonance."],
                  ["Electro '84", "Long boomy kick, tight toms with a ZAP chip, metallic perc."],
                  ["Chip Crush", "Chips up front at 4 bits, analog layers pulled back, more drive."],
@@ -162,7 +162,7 @@ def build(path):
 
     s += [Paragraph("Quick recipes", H2),
           table([["Sound", "Try"],
-                 ["SDS-V tom", "Chip OFF, CURVE ANLG, SHAPE 90%, TONE IN DRY, PITCH 200-330 Hz, BEND 70%, BEND TIME 1.6 s, DECAY 800 ms, NOISE 60%, CLICK 100%."],
+                 ["Classic hex tom", "Chip OFF, CURVE ANLG, SHAPE 90%, TONE IN DRY, PITCH 200-330 Hz, BEND 70%, BEND TIME 1.6 s, DECAY 800 ms, NOISE 60%, CLICK 100%."],
                  ["Hybrid 80s tom", "Chip TOM low, BEND 60-80%, BEND TIME 300-500 ms, DECAY 700 ms+, RESO 30-50%."],
                  ["Rimshot", "PITCH 480 Hz, DECAY 70 ms, LFO RATE 35-40 Hz, LFO PITCH 45%, CLICK 85%."],
                  ["Laser / syndrum", "TONE PITCH 300 Hz, BEND 100%, BEND TIME 150 ms, noise and chip off."],
@@ -171,8 +171,8 @@ def build(path):
                  ["Sub kick", "PITCH 40 Hz, BEND 30%, BEND TIME 60 ms, DECAY 1 s, CUTOFF 800 Hz."]],
                 [36 * mm, W - 36 * mm])]
 
-    s += [Paragraph("How the SDS-V kits were made", H2),
-          Paragraph("Each sound was matched by computer: WADAHEX rendered a hit, compared it to a real SDS5 one-shot "
+    s += [Paragraph("How the Hex and Vintage kits were made", H2),
+          Paragraph("Each sound was matched by computer: WADAHEX rendered a hit, compared it to a recording of vintage analog drum hardware "
                     "(spectrum at three time resolutions, pitch sweep and envelope), and adjusted its own knobs thousands of times "
                     "until the difference was as small as possible. No audio from the recordings is inside the plugin, only the settings it found.", BODY)]
     s += [Spacer(1, 10), Paragraph("WADAHEX is an original instrument inspired by 1980s analog and hybrid electronic drum kits. "

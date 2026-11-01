@@ -104,9 +104,9 @@ int main()
     {
         std::printf ("sound browser\n");
         Rig r;
-        r.p.applyPad (3, sds5Sounds()[0].params);
+        r.p.applyPad (3, vintageSounds()[0].params);
         const float v = r.p.apvts.getParameter (Hex1Processor::pid (3, "tonePitch"))->convertFrom0to1 (r.p.apvts.getParameter (Hex1Processor::pid (3, "tonePitch"))->getValue());
-        CHECK (std::abs (v - sds5Sounds()[0].params.tonePitch) < 1.0f, "SDS5 sound loads onto a pad");
+        CHECK (std::abs (v - vintageSounds()[0].params.tonePitch) < 1.0f, "vintage sound loads onto a pad");
     }
     std::printf (fails ? "\n%d FAILED\n" : "\nALL PASSED\n", fails);
     return fails ? 1 : 0;

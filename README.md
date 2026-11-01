@@ -1,14 +1,14 @@
 # WADAHEX — Hybrid Chip + Analog Drum Synth (by Yishay Raziel)
 
-8-pad VST3 drum synth modelled on the SDS-V analog voice: triangle VCO with bend, swept filtered noise, impact click, resonant filter on noise + click, LFO — plus an optional 8-bit chip layer. All sounds are synthesised — no vintage samples.
+10-pad VST3 drum synth modelled on the classic 80s analog hex-pad drum voice: triangle VCO with bend, swept filtered noise, impact click, resonant filter on noise + click, LFO — plus an optional 8-bit chip layer. All sounds are synthesised — no vintage samples.
 
 ## Features
 - 10 pads (Kick, Snare, Tom 1–4, Clap, Perc, closed + open hi-hat with choke), GM drum map; KEYS plays a pad chromatically
 - Per pad: Chip (8 chips, pitch, 2–8 bit), Tone (pitch, bend ±3 oct, bend time, decay), Noise (level, decay, color), Filter (cutoff, reso, env, decay), Output (drive, dynamics, level, pan)
 - 80s reverb per pad (VERB, V.TONE dark-bright, GATE for gated reverb), separate stereo output per pad
 - Mute / solo per pad, SELECT: MIDI to follow the played pad, analog DRIFT
-- Save your own kits, SOUND browser per pad (64 SDS5-matched sounds), Export One-Shots to WAV
-- 15 factory kits incl. SDS-V matched to real SDS5 recordings, full automation, state saved with the project
+- Save your own kits, SOUND browser per pad (64 sounds matched to vintage hardware), Export One-Shots to WAV
+- 15 factory kits incl. Hex Classic and Vintage kits matched to vintage hardware recordings, full automation, state saved with the project
 - Resizable UI (70–200%), velocity-sensitive clickable hex pads
 
 ## Build locally

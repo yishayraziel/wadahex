@@ -59,7 +59,7 @@ public:
     bool loadUserKit (const juce::String& name);
     void applyPad (int pad, const PadParams& pp);
     int exportOneShots (const juce::File& folder);
-    juce::String currentKitName { "SDS-V" };
+    juce::String currentKitName { "Hex Classic" };
     void markKit (int index) { currentKit = index; }
 
     // "select the pad that MIDI plays" for the editor

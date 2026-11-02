@@ -78,6 +78,8 @@ jobs:
           body: |
             **WADAHEX** - analog hex-pad drums, straight out of 1981. An 80s-style analog drum synth with an 8-bit chip layer. By Yishay Raziel.
 
+            **1.4:** right-click any pad to choose its sound in a pop-up menu. Pad names now follow the loaded sound (a clap on the KICK pad reads CLAP), and Rename Pad... lets you name pads yourself. Names are saved with the project and in user kits.
+
             **1.3.1:** kit and sound names updated (Hex Classic, Hex Wobble, Vintage Kit 1-6, Hybrid Hex). Sounds are unchanged; existing projects load as before.
 
             **1.3:** hi-hat pads (HH CL / HH OP with choke), save your own kits, a SOUND browser per pad (64 vintage-matched sounds), KEYS to play a pad chromatically, analog DRIFT, and Export One-Shots to WAV.

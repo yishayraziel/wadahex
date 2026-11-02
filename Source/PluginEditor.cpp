@@ -288,8 +288,8 @@ void PadGrid::paint (juce::Graphics& g)
         // labels
         const auto nameBox = juce::Rectangle<float> (c.x - R, c.y - 31.0f, R * 2, 34.0f);
         g.setFont (font (29.0f));
-        g.setColour (juce::Colours::black.withAlpha (0.6f)); g.drawText (padInfo[i].name, nameBox.translated (0, 2), juce::Justification::centred);
-        g.setColour (juce::Colour (0xfff3e9da)); g.drawText (padInfo[i].name, nameBox, juce::Justification::centred);
+        g.setColour (juce::Colours::black.withAlpha (0.6f)); g.drawText (proc.getPadName (i), nameBox.translated (0, 2), juce::Justification::centred);
+        g.setColour (juce::Colour (0xfff3e9da)); g.drawText (proc.getPadName (i), nameBox, juce::Justification::centred);
         g.setFont (font (19.0f, false));
         g.setColour (gl > 0.5f ? juce::Colour (0xffffe0d6) : juce::Colour (0xffff3b2a));
         g.drawText (juce::MidiMessage::getMidiNoteName (padInfo[i].note, true, true, 3),
@@ -313,6 +313,19 @@ void PadGrid::mouseDown (const juce::MouseEvent& e)
                 repaint();
                 return;
             }
+    if (e.mods.isPopupMenu())   // right-click (or ctrl-click): choose this pad's sound, don't play it
+    {
+        for (int i = 0; i < kNumPads; ++i)
+            if (hexes[(size_t) i].contains (e.position))
+            {
+                selected = i;
+                if (onSelect) onSelect (i);
+                repaint();
+                if (onSoundMenu) onSoundMenu (i, e.getScreenPosition());
+                return;
+            }
+        return;
+    }
     for (int i = 0; i < kNumPads; ++i)
         if (hexes[(size_t) i].contains (e.position))
         {
@@ -332,6 +345,9 @@ void PadGrid::timerCallback()
     int ms = 0;
     for (int i = 0; i < kNumPads; ++i) ms |= (proc.isMuted (i) ? 1 : 0) << i | (proc.isSoloed (i) ? 1 : 0) << (i + 8);
     if (ms != lastMuteSolo) { lastMuteSolo = ms; dirty = true; }
+    juce::String names;
+    for (int i = 0; i < kNumPads; ++i) names << proc.getPadName (i) << "|";
+    if (names != lastNames) { lastNames = names; dirty = true; }   // kit loads, host state restore, renames
     for (int i = 0; i < kNumPads; ++i)
     {
         const float target = juce::jlimit (0.0f, 1.0f, proc.getPadMeter (i) * 1.4f);
@@ -389,6 +405,7 @@ Hex1Editor::Hex1Editor (Hex1Processor& p) : AudioProcessorEditor (p), proc (p), 
     addAndMakeVisible (content);
     content.addAndMakeVisible (pads);
     pads.onSelect = [this] (int i) { selectPad (i); };
+    pads.onSoundMenu = [this] (int, juce::Point<int> at) { showSoundMenu ({ at.x, at.y, 1, 1 }); };
 
     for (auto& sec : sections())
         for (auto& c : sec.cells)
@@ -420,7 +437,7 @@ Hex1Editor::Hex1Editor (Hex1Processor& p) : AudioProcessorEditor (p), proc (p), 
     keysBtn.onStateChange = [this] { keysBtn.setButtonText (keysBtn.getToggleState() ? "KEYS: ON" : "KEYS: OFF"); };
     keysBtn.setTooltip ("KEYS ON = play this pad chromatically from the keyboard: notes from C3 up, C4 = the pad's own pitch.");
     content.addAndMakeVisible (keysBtn);
-    soundBtn.setTooltip ("Load a sound onto the selected pad: 64 sounds matched to vintage hardware or any pad from the factory kits.");
+    soundBtn.setTooltip ("Load a sound onto the selected pad: 64 sounds matched to vintage hardware or any pad from the factory kits. Tip: right-click any pad.");
     soundBtn.onClick = [this] { showSoundMenu(); };
     content.addAndMakeVisible (soundBtn);
     followBtn.setClickingTogglesState (true);
@@ -619,10 +636,10 @@ void Hex1Editor::exportDialog()
 }
 
 // ---------------------------------------------------------------- per-pad sound browser
-void Hex1Editor::showSoundMenu()
+void Hex1Editor::showSoundMenu (juce::Rectangle<int> screenTarget)
 {
     juce::PopupMenu m;
-    m.addSectionHeader ("LOAD ONTO " + juce::String (padInfo[selectedPad].name));
+    m.addSectionHeader ("LOAD ONTO " + proc.getPadName (selectedPad));
     const auto& snd = vintageSounds();
     for (const char* cat : { "Kicks", "Snares", "Toms", "Rims" })
     {
@@ -641,17 +658,48 @@ void Hex1Editor::showSoundMenu()
         fromKits.addSubMenu (kits[k].name, sub);
     }
     m.addSubMenu ("From Factory Kits", fromKits);
-    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&soundBtn),
-        [safe = juce::Component::SafePointer<Hex1Editor> (this)] (int r) {
-            if (safe == nullptr || r <= 0) return;
-            auto& ed = *safe;
-            if (r < 1000) ed.proc.applyPad (ed.selectedPad, vintageSounds()[(size_t) (r - 1)].params);
-            else
-            {
-                const int k = (r - 1000) / 16, p = (r - 1000) % 16;
-                ed.proc.applyPad (ed.selectedPad, factoryKits()[(size_t) k].make()[(size_t) p]);
-            }
-        });
+    m.addSeparator();
+    m.addItem (900, "Rename Pad...");
+    m.addItem (901, "Reset Name to " + juce::String (padInfo[selectedPad].name), proc.getPadName (selectedPad) != padInfo[selectedPad].name);
+
+    auto opts = screenTarget.isEmpty() ? juce::PopupMenu::Options().withTargetComponent (&soundBtn)
+                                       : juce::PopupMenu::Options().withTargetScreenArea (screenTarget);
+    const int pad = selectedPad;
+    m.showMenuAsync (opts, [safe = juce::Component::SafePointer<Hex1Editor> (this), pad] (int r) {
+        if (safe == nullptr || r <= 0) return;
+        auto& ed = *safe;
+        static const char* catType[] = { "KICK", "SNARE", "TOM", "RIM" };
+        if (r == 900) { ed.renamePadDialog (pad); return; }
+        if (r == 901) ed.proc.setPadName (pad, {});
+        else if (r < 900)
+        {
+            const auto& s = vintageSounds()[(size_t) (r - 1)];
+            int c = 0;
+            for (const char* cat : { "Kicks", "Snares", "Toms", "Rims" }) { if (juce::String (s.category) == cat) break; ++c; }
+            ed.proc.applyPad (pad, s.params);
+            ed.proc.setPadName (pad, Hex1Processor::nameForSound (pad, catType[juce::jmin (c, 3)]));
+        }
+        else
+        {
+            const int k = (r - 1000) / 16, p = (r - 1000) % 16;
+            ed.proc.applyPad (pad, factoryKits()[(size_t) k].make()[(size_t) p]);
+            ed.proc.setPadName (pad, Hex1Processor::nameForSound (pad, padInfo[p].name));
+        }
+        ed.pads.repaint();
+    });
+}
+
+void Hex1Editor::renamePadDialog (int pad)
+{
+    auto* w = new juce::AlertWindow ("RENAME PAD", "Up to 8 characters.", juce::MessageBoxIconType::NoIcon, this);
+    w->addTextEditor ("name", proc.getPadName (pad));
+    if (auto* te = w->getTextEditor ("name")) { te->setInputRestrictions (8); te->selectAll(); }
+    w->addButton ("OK", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    w->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    w->enterModalState (true, juce::ModalCallbackFunction::create (
+        [safe = juce::Component::SafePointer<Hex1Editor> (this), w, pad] (int res) {
+            if (safe != nullptr && res == 1) { safe->proc.setPadName (pad, w->getTextEditorContents ("name")); safe->pads.repaint(); }
+        }), true);
 }
 
 void Hex1Editor::timerCallback()

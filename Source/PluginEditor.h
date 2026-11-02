@@ -36,6 +36,7 @@ class PadGrid : public juce::Component, private juce::Timer
 public:
     explicit PadGrid (Hex1Processor& p);
     std::function<void (int)> onSelect;
+    std::function<void (int, juce::Point<int>)> onSoundMenu;   // right-click: pad, screen position
     void setSelected (int pad) { selected = pad; repaint(); }
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -45,6 +46,7 @@ private:
     void timerCallback() override;
     juce::Rectangle<float> pillRect (int pad, int which) const;   // which: 0 = mute, 1 = solo
     int lastMuteSolo = -1;
+    juce::String lastNames;
     Hex1Processor& proc;
     std::array<juce::Path, kNumPads> hexes;
     std::array<juce::Point<float>, kNumPads> centres;
@@ -96,7 +98,8 @@ private:
     void stepKit (int dir);
     void saveKitDialog();
     void exportDialog();
-    void showSoundMenu();
+    void showSoundMenu (juce::Rectangle<int> screenTarget = {});
+    void renamePadDialog (int pad);
     int lastMidiCount = 0;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> outAtt;
     juce::Label chipLabel, toneFiltLabel, curveLabel;

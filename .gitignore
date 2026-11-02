@@ -5,3 +5,4 @@ tests/render_test
 .DS_Store
 tools/fit/*.so
 __pycache__/
+build_t/

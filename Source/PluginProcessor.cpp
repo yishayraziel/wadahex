@@ -376,6 +376,34 @@ void Hex1Processor::applyKit (const Kit& kit)
     for (int pad = 0; pad < kNumPads; ++pad) applyPad (pad, kit[(size_t) pad]);
 }
 
+// ---------------------------------------------------------------- pad names
+juce::String Hex1Processor::getPadName (int pad) const
+{
+    const auto v = apvts.state.getProperty ("padName" + juce::String (pad)).toString();
+    return v.isNotEmpty() ? v : juce::String (padInfo[pad].name);
+}
+
+void Hex1Processor::setPadName (int pad, const juce::String& name)
+{
+    const auto clean = name.trim().toUpperCase().substring (0, 8);
+    if (clean.isEmpty() || clean == juce::String (padInfo[pad].name)) apvts.state.removeProperty ("padName" + juce::String (pad), nullptr);
+    else apvts.state.setProperty ("padName" + juce::String (pad), clean, nullptr);
+}
+
+void Hex1Processor::resetPadNames()
+{
+    for (int pad = 0; pad < kNumPads; ++pad) apvts.state.removeProperty ("padName" + juce::String (pad), nullptr);
+}
+
+// "TOM 3" -> "TOM", "KICK" -> "KICK"
+static juce::String padType (const juce::String& n) { return n.trimCharactersAtEnd (" 0123456789"); }
+
+juce::String Hex1Processor::nameForSound (int targetPad, const juce::String& soundType)
+{
+    const juce::String def (padInfo[targetPad].name);
+    return padType (soundType) == padType (def) ? def : padType (soundType);
+}
+
 // ---------------------------------------------------------------- user kits
 juce::File Hex1Processor::userKitDir()
 {
@@ -401,7 +429,7 @@ bool Hex1Processor::saveUserKit (const juce::String& name)
     {
         auto* e = root.createNewChildElement ("PAD");
         e->setAttribute ("index", pad);
-        e->setAttribute ("name", padInfo[pad].name);
+        e->setAttribute ("name", getPadName (pad));
         for (size_t i = 0; i < specs().size(); ++i)
             if (! isPerformanceParam (i))
                 if (auto* p = apvts.getParameter (pid (pad, specs()[i].id)))
@@ -422,6 +450,7 @@ bool Hex1Processor::loadUserKit (const juce::String& name)
     {
         const int pad = e->getIntAttribute ("index", -1);
         if (pad < 0 || pad >= kNumPads) continue;
+        setPadName (pad, e->getStringAttribute ("name", padInfo[pad].name));
         for (size_t i = 0; i < specs().size(); ++i)
             if (! isPerformanceParam (i) && e->hasAttribute (specs()[i].id))
                 if (auto* p = apvts.getParameter (pid (pad, specs()[i].id)))
@@ -464,7 +493,7 @@ int Hex1Processor::exportOneShots (const juce::File& folder)
         const auto peak = buf.getMagnitude (0, end);
         if (peak > 0.98f) buf.applyGain (0.98f / peak);
         const auto name = juce::File::createLegalFileName ("WADAHEX " + currentKitName + " - "
-                              + juce::String (pad + 1).paddedLeft ('0', 2) + " " + padInfo[pad].name + ".wav");
+                              + juce::String (pad + 1).paddedLeft ('0', 2) + " " + getPadName (pad) + ".wav");
         auto file = folder.getChildFile (name);
         file.deleteFile();
         std::unique_ptr<juce::OutputStream> os (file.createOutputStream().release());
@@ -485,6 +514,7 @@ void Hex1Processor::setCurrentProgram (int index)
     currentKit = index;
     currentKitName = kits[(size_t) index].name;
     applyKit (kits[(size_t) index].make());
+    resetPadNames();
 }
 
 const juce::String Hex1Processor::getProgramName (int index)

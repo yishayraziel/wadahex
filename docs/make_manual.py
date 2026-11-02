@@ -127,7 +127,9 @@ def build(path):
                     "A closed hat chokes a ringing open hat. Give HH OP a long decay for a cymbal.", BODY)]
     s += [Paragraph("Sounds, kits and export", H2),
           Paragraph("<b>SOUND</b> (bottom of the pad panel) loads a sound onto the selected pad: any of the 64 sounds matched to recordings of vintage analog hardware "
-                    "(kicks, snares, toms, rims), or any pad from the factory kits.", BODY),
+                    "(kicks, snares, toms, rims), or any pad from the factory kits. Quicker: <b>right-click any pad</b> to open the same menu right there. "
+                    "The pad's name follows the sound you load (a clap on the KICK pad reads CLAP; its MIDI note stays the same). "
+                    "<b>Rename Pad...</b> in the same menu gives it your own name (up to 8 characters); names are saved with the project and in your kits.", BODY),
           Paragraph("<b>Save Kit As...</b> in the KIT menu saves all ten pads as your own kit; it appears under MY KITS in every project. "
                     "<b>Export One-Shots (WAV)...</b> renders every pad of the current kit, with its reverb, to 48 kHz / 24-bit WAV files "
                     "for any sampler. <b>Show My Kits Folder</b> opens the folder so you can back up or share kits (.wadakit files).", BODY),

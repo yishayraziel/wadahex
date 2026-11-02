@@ -60,6 +60,11 @@ public:
     void applyPad (int pad, const PadParams& pp);
     int exportOneShots (const juce::File& folder);
     juce::String currentKitName { "Hex Classic" };
+    // pad display names (follow the loaded sound; saved with the session and in user kits)
+    juce::String getPadName (int pad) const;
+    void setPadName (int pad, const juce::String& name);
+    void resetPadNames();
+    static juce::String nameForSound (int targetPad, const juce::String& soundType);
     void markKit (int index) { currentKit = index; }
 
     // "select the pad that MIDI plays" for the editor

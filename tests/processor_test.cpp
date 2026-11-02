@@ -108,6 +108,26 @@ int main()
         const float v = r.p.apvts.getParameter (Hex1Processor::pid (3, "tonePitch"))->convertFrom0to1 (r.p.apvts.getParameter (Hex1Processor::pid (3, "tonePitch"))->getValue());
         CHECK (std::abs (v - vintageSounds()[0].params.tonePitch) < 1.0f, "vintage sound loads onto a pad");
     }
+    {
+        std::printf ("pad names\n");
+        Rig r;
+        CHECK (Hex1Processor::nameForSound (0, "CLAP") == "CLAP", "CLAP onto KICK renames the pad");
+        CHECK (Hex1Processor::nameForSound (3, "TOM") == "TOM 2", "a tom onto TOM 2 keeps its number");
+        CHECK (Hex1Processor::nameForSound (0, "TOM 3") == "TOM", "a factory tom onto KICK becomes TOM");
+        r.p.setPadName (0, "clap");
+        CHECK (r.p.getPadName (0) == "CLAP", "name is stored upper-case");
+        juce::MemoryBlock mb; r.p.getStateInformation (mb);
+        Rig r2; r2.p.setStateInformation (mb.getData(), (int) mb.getSize());
+        CHECK (r2.p.getPadName (0) == "CLAP", "name survives a session save / load");
+        CHECK (r2.p.saveUserKit ("zz names kit"), "save kit with names");
+        r2.p.setCurrentProgram (0);
+        CHECK (r2.p.getPadName (0) == "KICK", "factory kit resets names");
+        r2.p.loadUserKit ("zz names kit");
+        CHECK (r2.p.getPadName (0) == "CLAP", "user kit restores names");
+        Hex1Processor::userKitDir().getChildFile ("zz names kit.wadakit").deleteFile();
+        r2.p.setPadName (0, "toolongname1");
+        CHECK (r2.p.getPadName (0) == "TOOLONGN", "names are capped at 8 characters");
+    }
     std::printf (fails ? "\n%d FAILED\n" : "\nALL PASSED\n", fails);
     return fails ? 1 : 0;
 }
